@@ -937,7 +937,7 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * Pause the connector.
+     * 暂停连接器。
      */
     public void pause() {
         try {
@@ -949,7 +949,7 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * Resume the connector.
+     * 恢复连接器。
      */
     public void resume() {
         try {
