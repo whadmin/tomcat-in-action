@@ -52,40 +52,56 @@ public final class Bootstrap {
     private static final Log log = LogFactory.getLog(Bootstrap.class);
 
     /**
-     * Daemon object used by main.
+     * Bootstrap实例的引用
      */
     private static Bootstrap daemon = null;
 
+    /**
+     * CATALINA_BASE表示tomcat工作目录(默认情况下等于按照目录)
+     */
     private static final File catalinaBaseFile;
+
+    /**
+     *CATALINA_HOME表示tomcat安装目录
+     */
     private static final File catalinaHomeFile;
+
 
     private static final Pattern PATH_PATTERN = Pattern.compile("(\".*?\")|(([^,])*)");
 
+
+    /**
+     *
+     */
     static {
-        // Will always be non-null
+        // 获取当前用户目录
+        // C:\work\project\tomcat8\apache-tomcat-8.5.39-src
         String userDir = System.getProperty("user.dir");
 
-        // Home first
+        // 第一步，从JAVA系统环境变量中获取catalina.home【tomcat安装目录路径】对应属性值
+        // 如果存在则,以获取值构造临时homeFile文件对象
         String home = System.getProperty(Globals.CATALINA_HOME_PROP);
         File homeFile = null;
 
         if (home != null) {
             File f = new File(home);
             try {
+                //使用当前文件绝对路径构造homeFile
                 homeFile = f.getCanonicalFile();
             } catch (IOException ioe) {
                 homeFile = f.getAbsoluteFile();
             }
         }
 
+        //第二步，在第一步没获取的时候，在userDir目录下获取bootstrap.jar文件，
+        //如果存在,则以userDir上级目录路径构造临时homeFile文件对象
         if (homeFile == null) {
-            // First fall-back. See if current directory is a bin directory
-            // in a normal Tomcat install
             File bootstrapJar = new File(userDir, "bootstrap.jar");
 
             if (bootstrapJar.exists()) {
                 File f = new File(userDir, "..");
                 try {
+                    //使用当前文件绝对路径构造homeFile
                     homeFile = f.getCanonicalFile();
                 } catch (IOException ioe) {
                     homeFile = f.getAbsoluteFile();
@@ -93,21 +109,29 @@ public final class Bootstrap {
             }
         }
 
+        //第三步，如果第一 二步都无法获取，这时我们直接将userDir路径构造临时homeFile文件对象
         if (homeFile == null) {
             // Second fall-back. Use current directory
             File f = new File(userDir);
             try {
+                //使用当前文件绝对路径构造homeFile
                 homeFile = f.getCanonicalFile();
             } catch (IOException ioe) {
                 homeFile = f.getAbsoluteFile();
             }
         }
 
+        //初始化catalinaHomeFile
         catalinaHomeFile = homeFile;
+
+        // 重新设置catalina.home到Java环境系统属性
         System.setProperty(
                 Globals.CATALINA_HOME_PROP, catalinaHomeFile.getPath());
 
-        // Then base
+
+        // 从JAVA系统环境变量中获取catalina.base【tomcat工作目录】属性值
+        // 如果存在则以此路径构造临时文件对象baseFile，并初始化catalinaBaseFile=baseFile
+        // 如果不存在则初始化初始化catalinaBaseFile=catalinaHomeFile
         String base = System.getProperty(Globals.CATALINA_BASE_PROP);
         if (base == null) {
             catalinaBaseFile = catalinaHomeFile;
@@ -120,6 +144,8 @@ public final class Bootstrap {
             }
             catalinaBaseFile = baseFile;
         }
+
+        // 重新设置catalina.base到Java环境系统属性
         System.setProperty(
                 Globals.CATALINA_BASE_PROP, catalinaBaseFile.getPath());
     }
@@ -128,27 +154,39 @@ public final class Bootstrap {
 
 
     /**
-     * Daemon reference.
+     * catalina实例
      */
     private Object catalinaDaemon = null;
 
-
+    /**
+     * Common类加载器，负责加载Tomcat和Web应用都复用的类
+     */
     ClassLoader commonLoader = null;
+
+    /**
+     * Catalina类加载器，负责加载Tomcat专用的类，而这些被加载的类在Web应用中将不可见
+     */
     ClassLoader catalinaLoader = null;
+
+    /**
+     * Shared类加载器，负责加载Tomcat下所有的Web应用程序都复用的类，而这些被加载的类在Tomcat中将不可见
+     */
     ClassLoader sharedLoader = null;
 
 
-    // -------------------------------------------------------- Private Methods
-
-
+    /**
+     * 初始化tomcat类加载器
+     */
     private void initClassLoaders() {
         try {
+            // 构造commonLoader，如果未创建成果的话，则使用应用程序类加载器作为commonLoader
             commonLoader = createClassLoader("common", null);
             if( commonLoader == null ) {
-                // no config file, default to this loader - we might be in a 'single' env.
                 commonLoader=this.getClass().getClassLoader();
             }
+            // 构造catalinaLoader，其父加载器为commonLoader
             catalinaLoader = createClassLoader("server", commonLoader);
+            // 构造sharedLoader，其父加载器为commonLoader
             sharedLoader = createClassLoader("shared", commonLoader);
         } catch (Throwable t) {
             handleThrowable(t);
@@ -158,24 +196,42 @@ public final class Bootstrap {
     }
 
 
+    /**
+     * 按照名称创建不同tomcat 类加载器
+     * @param name
+     * @param parent
+     * @return
+     * @throws Exception
+     */
     private ClassLoader createClassLoader(String name, ClassLoader parent)
         throws Exception {
-
+        //根据不同的类加载器从CatalinaProperties【引导Catalina配置】读取不同类加载加载class文件资源路径，多个路径,分隔
+        //默认情况下引导Catalina配置放在tomcat工作目录/conf/catalina.properties
+        //默认配置如下
+        //common.loader="${catalina.base}/lib","${catalina.base}/lib/*.jar","${catalina.home}/lib","${catalina.home}/lib/*.jar"
+        //server.loader=
+        //shared.loader=
         String value = CatalinaProperties.getProperty(name + ".loader");
         if ((value == null) || (value.equals("")))
             return parent;
 
+        //  替换资源路径字符串中属性遍历占位符，比如：${catalina.base}、${catalina.home}
         value = replace(value);
 
+        // 定义一个列表，存放Repository
+        // Repository 用来封装不同类型class资源
         List<Repository> repositories = new ArrayList<>();
 
+        // 将多个路径,分隔字符转换为数组
         String[] repositoryPaths = getPaths(value);
 
+        // 遍历repositoryPaths
         for (String repository : repositoryPaths) {
-            // Check for a JAR URL repository
+            // 检查资源路径是否为URL
             try {
                 @SuppressWarnings("unused")
                 URL url = new URL(repository);
+                //创建一个Repository，类型为URL添加到repositories
                 repositories.add(
                         new Repository(repository, RepositoryType.URL));
                 continue;
@@ -183,27 +239,36 @@ public final class Bootstrap {
                 // Ignore
             }
 
-            // Local repository
+            // 判断资源是否为某个目录下所有*.jar文件
             if (repository.endsWith("*.jar")) {
                 repository = repository.substring
                     (0, repository.length() - "*.jar".length());
+
+                //创建一个Repository，类型为GLOB添加到repositories
                 repositories.add(
                         new Repository(repository, RepositoryType.GLOB));
-            } else if (repository.endsWith(".jar")) {
+            }
+            // 判断资源是否为某个目录下.jar文件
+            else if (repository.endsWith(".jar")) {
+                //创建一个Repository，类型为JAR添加到repositories
                 repositories.add(
                         new Repository(repository, RepositoryType.JAR));
-            } else {
+            }
+            // 判断资源是否目录
+            else {
+                //创建一个Repository，类型为目录添加到repositories
                 repositories.add(
                         new Repository(repository, RepositoryType.DIR));
             }
         }
 
+        //创建一个ClassLoader
         return ClassLoaderFactory.createClassLoader(repositories, parent);
     }
 
 
     /**
-     * System property replacement in the given string.
+     * 替换字符串中属性遍历占位符
      *
      * @param str The original string
      * @return the modified string
@@ -249,24 +314,26 @@ public final class Bootstrap {
 
 
     /**
-     * Initialize daemon.
-     * @throws Exception Fatal initialization error
+     * 初始化bootstrap
      */
     public void init() throws Exception {
-
+        // 非常关键的地方，初始化类加载器
         initClassLoaders();
 
+        // 设置上下文类加载器为catalinaLoader，这个类加载器负责加载Tomcat专用的类
         Thread.currentThread().setContextClassLoader(catalinaLoader);
 
+        // 使用catalinaLoader加载tomcat源代码里面的各个专用类
         SecurityClassLoad.securityClassLoad(catalinaLoader);
 
-        // Load our startup class and call its process() method
         if (log.isDebugEnabled())
             log.debug("Loading startup class");
+
+        //使用catalinaLoader类，通过反射实例化Catalina
         Class<?> startupClass = catalinaLoader.loadClass("org.apache.catalina.startup.Catalina");
         Object startupInstance = startupClass.getConstructor().newInstance();
 
-        // Set the shared extensions class loader
+        // 反射调用setParentClassLoader方法，设置其parentClassLoader为sharedLoader
         if (log.isDebugEnabled())
             log.debug("Setting startup class properties");
         String methodName = "setParentClassLoader";
@@ -278,13 +345,15 @@ public final class Bootstrap {
             startupInstance.getClass().getMethod(methodName, paramTypes);
         method.invoke(startupInstance, paramValues);
 
+        //初始化catalinaDaemon，引用创建的Catalina实例
         catalinaDaemon = startupInstance;
 
     }
 
 
     /**
-     * Load daemon.
+     * 加载Tomcat
+     * 内部反射调用catalina.load方法
      */
     private void load(String[] arguments)
         throws Exception {
@@ -312,7 +381,8 @@ public final class Bootstrap {
 
 
     /**
-     * getServer() for configtest
+     * 获取Tomcat server组件
+     * 内部反射调用catalina实例getServer()方法
      */
     private Object getServer() throws Exception {
 
@@ -328,9 +398,7 @@ public final class Bootstrap {
 
 
     /**
-     * Load the Catalina daemon.
-     * @param arguments Initialization arguments
-     * @throws Exception Fatal initialization error
+     * 初始化，并加载 tomcat
      */
     public void init(String[] arguments)
         throws Exception {
@@ -342,8 +410,8 @@ public final class Bootstrap {
 
 
     /**
-     * Start the Catalina daemon.
-     * @throws Exception Fatal start error
+     * 启动tomcat
+     * 内部调用catalina.start()
      */
     public void start()
         throws Exception {
@@ -356,8 +424,8 @@ public final class Bootstrap {
 
 
     /**
-     * Stop the Catalina Daemon.
-     * @throws Exception Fatal stop error
+     * 停止 tomcat
+     * 内部调用catalina.stop()
      */
     public void stop()
         throws Exception {
@@ -369,7 +437,7 @@ public final class Bootstrap {
 
 
     /**
-     * Stop the standalone server.
+     * 触发 tomcat server组件触发停止动作
      * @throws Exception Fatal stop error
      */
     public void stopServer()
@@ -449,37 +517,42 @@ public final class Bootstrap {
 
 
     /**
-     * Main method and entry point when starting Tomcat via the provided
-     * scripts.
+     * tomcat 启动，停止，加载配置文件入口方法。
+     * 由外部脚本调用，方法内部通过判断参数，执行不同处理。
      *
      * @param args Command line arguments to be processed
      */
     public static void main(String args[]) {
 
+        // 当执行一个启动操作时，daemon肯定为null，
         if (daemon == null) {
-            // Don't set daemon until init() has completed
+            //直接new了一个Bootstrap对象，
             Bootstrap bootstrap = new Bootstrap();
             try {
+                //初始化bootstrap
                 bootstrap.init();
             } catch (Throwable t) {
                 handleThrowable(t);
                 t.printStackTrace();
                 return;
             }
+            // daemon守护对象设置为bootstrap
             daemon = bootstrap;
         } else {
-            // When running as a service the call to stop will be on a new
-            // thread so make sure the correct class loader is used to prevent
-            // a range of class not found exceptions.
+            // 启动的tomcat 正在运行，将catalinaLoader加入当前线程上下文ClassLoader中
             Thread.currentThread().setContextClassLoader(daemon.catalinaLoader);
         }
 
         try {
+            //默认执行的指令为"start"
             String command = "start";
+
+            // 获取最后一个参数作为执行指令
             if (args.length > 0) {
                 command = args[args.length - 1];
             }
 
+            //根据不同的指令完成不同的操作
             if (command.equals("startd")) {
                 args[args.length - 1] = "start";
                 daemon.load(args);
@@ -492,6 +565,7 @@ public final class Bootstrap {
                 daemon.load(args);
                 daemon.start();
                 if (null == daemon.getServer()) {
+                    //非正常退出程序
                     System.exit(1);
                 }
             } else if (command.equals("stop")) {
@@ -499,69 +573,52 @@ public final class Bootstrap {
             } else if (command.equals("configtest")) {
                 daemon.load(args);
                 if (null == daemon.getServer()) {
+                    //非正常退出程序
                     System.exit(1);
                 }
+                //正常退出程序
                 System.exit(0);
             } else {
                 log.warn("Bootstrap: command \"" + command + "\" does not exist.");
             }
         } catch (Throwable t) {
-            // Unwrap the Exception for clearer error reporting
             if (t instanceof InvocationTargetException &&
                     t.getCause() != null) {
                 t = t.getCause();
             }
+            //处理Throwable,
             handleThrowable(t);
+            //打印异常
             t.printStackTrace();
+            //非正常退出程序
             System.exit(1);
         }
 
     }
 
 
-    /**
-     * Obtain the name of configured home (binary) directory. Note that home and
-     * base may be the same (and are by default).
-     * @return the catalina home
-     */
+
     public static String getCatalinaHome() {
         return catalinaHomeFile.getPath();
     }
 
-
-    /**
-     * Obtain the name of the configured base (instance) directory. Note that
-     * home and base may be the same (and are by default). If this is not set
-     * the value returned by {@link #getCatalinaHome()} will be used.
-     * @return the catalina base
-     */
     public static String getCatalinaBase() {
         return catalinaBaseFile.getPath();
     }
 
-
-    /**
-     * Obtain the configured home (binary) directory. Note that home and
-     * base may be the same (and are by default).
-     * @return the catalina home as a file
-     */
     public static File getCatalinaHomeFile() {
         return catalinaHomeFile;
     }
 
-
-    /**
-     * Obtain the configured base (instance) directory. Note that
-     * home and base may be the same (and are by default). If this is not set
-     * the value returned by {@link #getCatalinaHomeFile()} will be used.
-     * @return the catalina base as a file
-     */
     public static File getCatalinaBaseFile() {
         return catalinaBaseFile;
     }
 
 
-    // Copied from ExceptionUtils since that class is not visible during start
+    /**
+     * 处理Throwable,只针对ThreadDeath，VirtualMachineError响应抛出异常
+     * 其他异常忽略
+     */
     private static void handleThrowable(Throwable t) {
         if (t instanceof ThreadDeath) {
             throw (ThreadDeath) t;
@@ -569,7 +626,7 @@ public final class Bootstrap {
         if (t instanceof VirtualMachineError) {
             throw (VirtualMachineError) t;
         }
-        // All other instances of Throwable will be silently swallowed
+        // 所有其他Throwable实例都会被默默吞噬
     }
 
 

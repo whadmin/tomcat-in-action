@@ -29,8 +29,8 @@ import org.apache.juli.logging.LogFactory;
 
 
 /**
- * Utility class to read the bootstrap Catalina configuration.
- *
+ * 用于读取引导Catalina配置
+ * 默认路径为catalina.properties
  * @author Remy Maucherat
  */
 public class CatalinaProperties {
@@ -40,14 +40,16 @@ public class CatalinaProperties {
     private static Properties properties = null;
 
 
+    //加载配置
     static {
         loadProperties();
     }
 
 
     /**
-     * @param name The property name
-     * @return specified property value
+     * 获取属性的值
+     * @param name 属性名称
+     * @return 返回属性值
      */
     public static String getProperty(String name) {
         return properties.getProperty(name);
@@ -55,12 +57,14 @@ public class CatalinaProperties {
 
 
     /**
-     * Load properties.
+     * 从配置中加载属性
      */
     private static void loadProperties() {
 
         InputStream is = null;
+        // 第一步从Java系统环境变量catalina.config中找到引导Catalina配置文件
         try {
+
             String configUrl = System.getProperty("catalina.config");
             if (configUrl != null) {
                 is = (new URL(configUrl)).openStream();
@@ -69,6 +73,7 @@ public class CatalinaProperties {
             handleThrowable(t);
         }
 
+        //如果第一步获取失败，以tomcat工作目录/conf/catalina.properties作为引导Catalina配置文件
         if (is == null) {
             try {
                 File home = new File(Bootstrap.getCatalinaBase());
@@ -80,6 +85,8 @@ public class CatalinaProperties {
             }
         }
 
+        //使用AppClassLoader从classpath文件中读取"/org/apache/catalina/startup/catalina.properties"
+        //作为引导Catalina配置文件
         if (is == null) {
             try {
                 is = CatalinaProperties.class.getResourceAsStream
@@ -89,6 +96,7 @@ public class CatalinaProperties {
             }
         }
 
+        //读取配置加载到内存对象properties中
         if (is != null) {
             try {
                 properties = new Properties();
@@ -112,7 +120,7 @@ public class CatalinaProperties {
             properties = new Properties();
         }
 
-        // Register the properties as system properties
+        // 将properties所有属性注册为Java系统环境变量属性中
         Enumeration<?> enumeration = properties.propertyNames();
         while (enumeration.hasMoreElements()) {
             String name = (String) enumeration.nextElement();

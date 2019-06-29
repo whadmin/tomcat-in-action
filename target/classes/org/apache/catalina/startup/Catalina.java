@@ -124,7 +124,7 @@ public class Catalina {
 
 
     /**
-     * Prevent duplicate loads.
+     * 加载标识，防止重复加载。
      */
     protected boolean loaded = false;
 
@@ -530,6 +530,7 @@ public class Catalina {
      */
     public void load() {
 
+        /** 判断是否已经加载过，防止重复加载 **/
         if (loaded) {
             return;
         }
@@ -537,19 +538,22 @@ public class Catalina {
 
         long t1 = System.nanoTime();
 
+        /** 检查java.io.tmdir系统属性值对应目录是否存在  **/
         initDirs();
 
-        // Before digester - it may be needed
+        /** 初始化jmx系统属性 **/
         initNaming();
 
-        // Create and execute our Digester
-            Digester digester = createStartDigester();
+        /** 创建Digester实例，定义解析/conf/Server.xml文件规则**/
+        Digester digester = createStartDigester();
 
             InputSource inputSource = null;
             InputStream inputStream = null;
             File file = null;
             try {
+            /** 读取 catalina_home\conf\server.xml 配置文件 **/
             try {
+
                 file = configFile();
                 inputStream = new FileInputStream(file);
                 inputSource = new InputSource(file.toURI().toURL().toString());
@@ -558,6 +562,7 @@ public class Catalina {
                     log.debug(sm.getString("catalina.configFail", file), e);
                 }
             }
+            /** 读取 classpath:\conf\server.xml **/
             if (inputStream == null) {
                 try {
                     inputStream = getClass().getClassLoader()
@@ -573,8 +578,7 @@ public class Catalina {
                 }
             }
 
-            // This should be included in catalina.jar
-            // Alternative: don't bother with xml, just create it manually.
+            /** 读取 classpath:\conf\server-embed.xml **/
             if (inputStream == null) {
                 try {
                     inputStream = getClass().getClassLoader()
@@ -590,7 +594,7 @@ public class Catalina {
                 }
             }
 
-
+            /** 没有找到配置文件返回 **/
             if (inputStream == null || inputSource == null) {
                 if  (file == null) {
                     log.warn(sm.getString("catalina.configFail",
@@ -605,6 +609,7 @@ public class Catalina {
                 return;
             }
 
+            /** 将xml解析对象放置到当前对象属性中 **/
             try {
                 inputSource.setByteStream(inputStream);
                 digester.push(this);
@@ -627,6 +632,7 @@ public class Catalina {
             }
         }
 
+        /** 给Server设置catalina信息  **/
         getServer().setCatalina(this);
         getServer().setCatalinaHome(Bootstrap.getCatalinaHomeFile());
         getServer().setCatalinaBase(Bootstrap.getCatalinaBaseFile());
@@ -634,7 +640,7 @@ public class Catalina {
         // Stream redirection
         initStreams();
 
-        // Start the new server
+        /** 初始化 进入Lifecycle**/
         try {
             getServer().init();
         } catch (LifecycleException e) {
@@ -813,7 +819,10 @@ public class Catalina {
             log.info( "Catalina naming disabled");
             System.setProperty("catalina.useNaming", "false");
         } else {
+
             System.setProperty("catalina.useNaming", "true");
+
+
             String value = "org.apache.naming";
             String oldValue =
                 System.getProperty(javax.naming.Context.URL_PKG_PREFIXES);
@@ -824,6 +833,7 @@ public class Catalina {
             if( log.isDebugEnabled() ) {
                 log.debug("Setting naming prefix=" + value);
             }
+
             value = System.getProperty
                 (javax.naming.Context.INITIAL_CONTEXT_FACTORY);
             if (value == null) {

@@ -19,44 +19,32 @@ package org.apache.catalina;
 import java.util.EventObject;
 
 /**
- * General event for notifying listeners of significant changes on a component
- * that implements the Lifecycle interface.
- *
- * @author Craig R. McClanahan
+ * 通过监听器发送的生命周期事件
  */
 public final class LifecycleEvent extends EventObject {
 
     private static final long serialVersionUID = 1L;
 
-
-    /**
-     * Construct a new LifecycleEvent with the specified parameters.
-     *
-     * @param lifecycle Component on which this event occurred
-     * @param type Event type (required)
-     * @param data Event data (if any)
-     */
     public LifecycleEvent(Lifecycle lifecycle, String type, Object data) {
         super(lifecycle);
         this.type = type;
         this.data = data;
     }
 
-
     /**
-     * The event data associated with this event.
+     * 与此事件关联的事件数据。
      */
     private final Object data;
 
 
     /**
-     * The event type this instance represents.
+     *  事件类型
      */
     private final String type;
 
 
     /**
-     * @return the event data of this event.
+     * 返回触发事件数据
      */
     public Object getData() {
         return data;
@@ -64,7 +52,7 @@ public final class LifecycleEvent extends EventObject {
 
 
     /**
-     * @return the Lifecycle on which this event occurred.
+     * 返回触发事件的组件
      */
     public Lifecycle getLifecycle() {
         return (Lifecycle) getSource();
@@ -72,7 +60,7 @@ public final class LifecycleEvent extends EventObject {
 
 
     /**
-     * @return the event type of this event.
+     * 返回触发事件类型
      */
     public String getType() {
         return this.type;

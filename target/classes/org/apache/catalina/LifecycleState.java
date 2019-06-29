@@ -21,20 +21,40 @@ package org.apache.catalina;
  * See {@link Lifecycle} for the state transition diagram.
  */
     public enum LifecycleState {
+    //实例化完成时的状态
     NEW(false, null),
+    // 容器正在初始化的状态，在INITIALIZED之前
     INITIALIZING(false, Lifecycle.BEFORE_INIT_EVENT),
+    // 初始化完成的状态
     INITIALIZED(false, Lifecycle.AFTER_INIT_EVENT),
+    // 启动前
     STARTING_PREP(false, Lifecycle.BEFORE_START_EVENT),
+    // 启动过程中的状态
     STARTING(true, Lifecycle.START_EVENT),
+    // 启动完成
     STARTED(true, Lifecycle.AFTER_START_EVENT),
+    // 停止前的状态
     STOPPING_PREP(true, Lifecycle.BEFORE_STOP_EVENT),
+    // 停止过程中
     STOPPING(false, Lifecycle.STOP_EVENT),
+    // 停止完成
     STOPPED(false, Lifecycle.AFTER_STOP_EVENT),
+    // 销毁中
     DESTROYING(false, Lifecycle.BEFORE_DESTROY_EVENT),
+    // 完成销毁
     DESTROYED(false, Lifecycle.AFTER_DESTROY_EVENT),
+    // 启动、停止过程中出现异常
     FAILED(false, null);
 
+    /**
+     * 组件当前是否正在运行
+     */
     private final boolean available;
+
+
+    /**
+     * 组件当前状态触发的事件
+     */
     private final String lifecycleEvent;
 
     private LifecycleState(boolean available, String lifecycleEvent) {
@@ -43,22 +63,15 @@ package org.apache.catalina;
     }
 
     /**
-     * May the public methods other than property getters/setters and lifecycle
-     * methods be called for a component in this state? It returns
-     * <code>true</code> for any component in any of the following states:
-     * <ul>
-     * <li>{@link #STARTING}</li>
-     * <li>{@link #STARTED}</li>
-     * <li>{@link #STOPPING_PREP}</li>
-     * </ul>
-     *
-     * @return <code>true</code> if the component is available for use,
-     *         otherwise <code>false</code>
+     * 判断组件是否正在运行
      */
     public boolean isAvailable() {
         return available;
     }
 
+    /**
+     * 返回组件当前状态需要触发的事件
+     */
     public String getLifecycleEvent() {
         return lifecycleEvent;
     }
