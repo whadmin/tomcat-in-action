@@ -122,7 +122,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
         StringManager.getManager(Constants.Package);
 
     /**
-     * 属性更改管理器
+     * 属性变更监听器
      */
     final PropertyChangeSupport support = new PropertyChangeSupport(this);
 
@@ -575,7 +575,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     public void removeService(Service service) {
 
         synchronized (servicesLock) {
-            /** 从Service子组件数组找到删除service子组件 **/
+            /** 从Service子组件数组找到删除 service 子组件 **/
             int j = -1;
             for (int i = 0; i < services.length; i++) {
                 if (service == services[i]) {
@@ -587,14 +587,14 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
             if (j < 0)
                 return;
 
-            /** 找到执行停止删除Service组件 **/
+            /** 对删除service子组件 停止动作 **/
             try {
                 services[j].stop();
             } catch (LifecycleException e) {
                 // Ignore
             }
 
-            /** service数组中在删除service子组件后service前移 **/
+            /** 对service 数组中在删除service子组件后service子组件在数组中前移 **/
             int k = 0;
             Service results[] = new Service[services.length - 1];
             for (int i = 0; i < services.length; i++) {

@@ -62,45 +62,53 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * The string manager for this package.
+     * 管理打印日志模板组件
      */
     private static final StringManager sm =
         StringManager.getManager(Constants.Package);
 
     /**
-     * The <code>Server</code> that owns this Service, if any.
+     * 外部 server组件
      */
     private Server server = null;
 
     /**
-     * The property change support for this component.
+     *  属性变更监听器
      */
     protected final PropertyChangeSupport support = new PropertyChangeSupport(this);
 
 
     /**
-     * The set of Connectors associated with this Service.
+     * Connector子组件（连接器）
      */
     protected Connector connectors[] = new Connector[0];
+
+
     private final Object connectorsLock = new Object();
 
     /**
-     *
+     * 线程池对象
      */
     protected final ArrayList<Executor> executors = new ArrayList<>();
 
+    /**
+     * Engine 子组件（Servlet容器）
+     */
     private Engine engine = null;
 
+    /**
+     * 默认为null
+     */
     private ClassLoader parentClassLoader = null;
 
     /**
-     * Mapper.
+     * 请求映射对象
      */
     protected final Mapper mapper = new Mapper();
 
 
     /**
-     * Mapper listener.
+     * 请求映射对象监听器
      */
     protected final MapperListener mapperListener = new MapperListener(this);
 
@@ -180,10 +188,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
     // --------------------------------------------------------- Public Methods
 
     /**
-     * Add a new Connector to the set of defined Connectors, and associate it
-     * with this Service's Container.
-     *
-     * @param connector The Connector to be added
+     * 为Service组件添加 Connector子组件
      */
     @Override
     public void addConnector(Connector connector) {
@@ -230,7 +235,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Find and return the set of Connectors associated with this Service.
+     * 返回所有 Connector子组件
      */
     @Override
     public Connector[] findConnectors() {
@@ -239,16 +244,13 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Remove the specified Connector from the set associated from this
-     * Service.  The removed Connector will also be disassociated from our
-     * Container.
-     *
-     * @param connector The Connector to be removed
+     * 从Service组件中删除Connector子组件
      */
     @Override
     public void removeConnector(Connector connector) {
 
         synchronized (connectorsLock) {
+            /** 从Connector子组件数组找到删除,connector子组件 **/
             int j = -1;
             for (int i = 0; i < connectors.length; i++) {
                 if (connector == connectors[i]) {
@@ -256,8 +258,11 @@ public class StandardService extends LifecycleMBeanBase implements Service {
                     break;
                 }
             }
+            /** 没有找到忽略此动作 **/
             if (j < 0)
                 return;
+
+            /** 对删除connector组件 停止动作**/
             if (connectors[j].getState().isAvailable()) {
                 try {
                     connectors[j].stop();
@@ -267,7 +272,10 @@ public class StandardService extends LifecycleMBeanBase implements Service {
                             connectors[j]), e);
                 }
             }
+            /** 将connector中Service设置为null **/
             connector.setService(null);
+
+            /** 对connector数组中在删除connector子组件后connector子组件在数组中前移 **/
             int k = 0;
             Connector results[] = new Connector[connectors.length - 1];
             for (int i = 0; i < connectors.length; i++) {
