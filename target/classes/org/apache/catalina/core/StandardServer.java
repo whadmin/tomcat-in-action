@@ -68,7 +68,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
 
 
     /**
-     * Construct a default instance of this class.
+     * 构造此类的默认实例。
      */
     public StandardServer() {
 
@@ -77,6 +77,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
         globalNamingResources = new NamingResourcesImpl();
         globalNamingResources.setContainer(this);
 
+        /** 判断是否开启JNDI服务 **/
         if (isUseNaming()) {
             namingContextListener = new NamingContextListener();
             addLifecycleListener(namingContextListener);
@@ -109,39 +110,41 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
 
 
     /**
-     * The port number on which we wait for shutdown commands.
+     * 我们等待shutdown命令的端口号。
      */
     private int port = 8005;
 
     /**
-     * The address on which we wait for shutdown commands.
+     * 我们等待shutdown命令的地址。
      */
     private String address = "localhost";
 
 
     /**
-     * A random number generator that is <strong>only</strong> used if
-     * the shutdown command string is longer than 1024 characters.
+     * 如果* shutdown命令字符串超过1024个字符，则使用<strong> </ strong>的随机数生成器。
      */
     private Random random = null;
 
 
     /**
-     * The set of Services associated with this Server.
+     * Service 组件数组（一个Server 存在多个Service子组件）
      */
     private Service services[] = new Service[0];
+
+
+    /**
+     * services组件 锁
+     */
     private final Object servicesLock = new Object();
 
 
     /**
-     * The shutdown command string we are looking for.
+     * 执行shutdown命令，字符串指令
      */
     private String shutdown = "SHUTDOWN";
 
 
-    /**
-     * The string manager for this package.
-     */
+    /** 管理打印日志模板组件 **/
     private static final StringManager sm =
         StringManager.getManager(Constants.Package);
 
@@ -758,7 +761,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
 
 
     /**
-     * @return <code>true</code> if naming should be used.
+     * 返回Tomcat是否开启JDNI服务
      */
     private boolean isUseNaming() {
         boolean useNaming = true;

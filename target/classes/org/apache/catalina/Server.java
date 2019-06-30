@@ -100,15 +100,13 @@ public interface Server extends Lifecycle {
 
 
     /**
-     * @return the shutdown command string we are waiting for.
+     * @return 我们正在等待的shutdown命令字符串。
      */
     public String getShutdown();
 
 
     /**
-     * Set the shutdown command we are waiting for.
-     *
-     * @param shutdown The new shutdown command
+     * 设置我们正在等待的shutdown命令。
      */
     public void setShutdown(String shutdown);
 

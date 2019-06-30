@@ -106,18 +106,15 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     // ------------------------------------------------------------- Properties
-
     @Override
     public Mapper getMapper() {
         return mapper;
     }
 
-
     @Override
     public Engine getContainer() {
         return engine;
     }
-
 
     @Override
     public void setContainer(Engine engine) {
@@ -161,47 +158,25 @@ public class StandardService extends LifecycleMBeanBase implements Service {
         support.firePropertyChange("container", oldEngine, this.engine);
     }
 
-
-    /**
-     * Return the name of this Service.
-     */
     @Override
     public String getName() {
         return name;
     }
 
-
-    /**
-     * Set the name of this Service.
-     *
-     * @param name The new service name
-     */
     @Override
     public void setName(String name) {
         this.name = name;
     }
 
-
-    /**
-     * Return the <code>Server</code> with which we are associated (if any).
-     */
     @Override
     public Server getServer() {
         return this.server;
     }
 
-
-    /**
-     * Set the <code>Server</code> with which we are associated (if any).
-     *
-     * @param server The server that owns this Service
-     */
     @Override
     public void setServer(Server server) {
         this.server = server;
     }
-
-
     // --------------------------------------------------------- Public Methods
 
     /**
@@ -247,9 +222,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Add a property change listener to this component.
-     *
-     * @param listener The listener to add
+     * 向此组件添加属性更改侦听器。
      */
     public void addPropertyChangeListener(PropertyChangeListener listener) {
         support.addPropertyChangeListener(listener);
