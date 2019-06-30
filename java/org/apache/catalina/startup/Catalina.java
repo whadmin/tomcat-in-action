@@ -76,11 +76,9 @@ public class Catalina {
     protected static final StringManager sm =
         StringManager.getManager(Constants.Package);
 
-
     // ----------------------------------------------------- Instance Variables
-
     /**
-     * Use await.
+     * 标识是否需要启动一个Socket等待接受shutdown命令，用来停止Tomcat
      */
     protected boolean await = false;
 
@@ -131,7 +129,11 @@ public class Catalina {
 
     // ----------------------------------------------------------- Constructors
 
+    /**
+     * 实例化Catalina
+     */
     public Catalina() {
+        /** 从catalina.properties获取受保护类，注册到Security中  **/
         setSecurityProtection();
         ExceptionUtils.preload();
     }
@@ -146,7 +148,6 @@ public class Catalina {
     public String getConfigFile() {
         return configFile;
     }
-
 
     public void setUseShutdownHook(boolean useShutdownHook) {
         this.useShutdownHook = useShutdownHook;
@@ -177,7 +178,6 @@ public class Catalina {
         return server;
     }
 
-
     public boolean isUseNaming() {
         return (this.useNaming);
     }
@@ -199,10 +199,9 @@ public class Catalina {
 
 
     /**
-     * Process the specified command line arguments.
-     *
-     * @param args Command line arguments to process
-     * @return <code>true</code> if we should continue processing
+     * 处理指定的命令行参数。
+     * 没有看到哪里有调用，可能用于JMX?
+     * "-nonaming" 标识开启JDNI
      */
     protected boolean arguments(String args[]) {
 
@@ -241,12 +240,13 @@ public class Catalina {
 
 
     /**
-     * Return a File object representing our configuration file.
+     * 返回配置文件的绝对路径File对象
      * @return the main configuration file
      */
     protected File configFile() {
 
         File file = new File(configFile);
+        /** 判断路径名是否是绝对的 **/
         if (!file.isAbsolute()) {
             file = new File(Bootstrap.getCatalinaBase(), configFile);
         }
@@ -256,15 +256,19 @@ public class Catalina {
 
 
     /**
-     * Create and configure the Digester we will be using for startup.
-     * @return the main digester to parse server.xml
+     * 创建并配置我们将用于启动的Digester。
+     * 主要用于解析server.xml
      */
     protected Digester createStartDigester() {
         long t1=System.currentTimeMillis();
         // Initialize the digester
         Digester digester = new Digester();
+        /** 设置为false表示解析xml时不需要进行DTD的规则校验   **/
         digester.setValidating(false);
+        /** 是否进行节点设置规则校验,如果xml中相应节点没有设置解析规则会在控制台显示提示信息   **/
         digester.setRulesValidation(true);
+
+        /** 设置无效的属性，也就是在检查到这些属性时SetProperties规则不会将其设置到规则指定对象属性中 **/
         Map<Class<?>, List<String>> fakeAttributes = new HashMap<>();
         List<String> objectAttrs = new ArrayList<>();
         objectAttrs.add("className");
@@ -276,11 +280,29 @@ public class Catalina {
         digester.setFakeAttributes(fakeAttributes);
         digester.setUseContextClassLoader(true);
 
-        // Configure the actions we will be using
+        /**
+         * 添加内置解析规则
+         * 规则如下
+         * 碰到<server>标签将默认会实例化一个org.apache.catalina.core.StandardServer
+         * (这里className表示如果<server>标签如果存在className属性将实例化属性值对应的对象)入栈到digester对象处理栈顶
+         * 碰到</server>将创建对象从digester对象处理栈中出栈
+         */
         digester.addObjectCreate("Server",
                                  "org.apache.catalina.core.StandardServer",
                                  "className");
+        /** 添加内置解析规则
+         *  规则如下
+         *  碰到<server>标签时会将标签中属性值映射到标签实例对象的属性中
+         */
         digester.addSetProperties("Server");
+
+
+        /** 添加内置解析规则
+         *  规则如下
+         *  碰到</server>标签时,会找到栈顶对象之后的对象调用指定方法（setServer），并将栈顶对象作为参数（指定参数类型org.apache.catalina.Server）
+         *
+         *  addSetNext 本质是将子标签中解析完的对象设置到父对象属性中。
+         */
         digester.addSetNext("Server",
                             "setServer",
                             "org.apache.catalina.Server");
@@ -316,7 +338,6 @@ public class Catalina {
                             "addLifecycleListener",
                             "org.apache.catalina.LifecycleListener");
 
-        //Executor
         digester.addObjectCreate("Server/Service/Executor",
                          "org.apache.catalina.core.StandardThreadExecutor",
                          "className");
@@ -326,7 +347,7 @@ public class Catalina {
                             "addExecutor",
                             "org.apache.catalina.Executor");
 
-
+        /** 为指定xml规则添加自定义规则 **/
         digester.addRule("Server/Service/Connector",
                          new ConnectorCreateRule());
         digester.addRule("Server/Service/Connector",
@@ -380,7 +401,7 @@ public class Catalina {
                             "addUpgradeProtocol",
                             "org.apache.coyote.UpgradeProtocol");
 
-        // Add RuleSets for nested elements
+        /** 为指定xml标签添加一组规则 **/
         digester.addRuleSet(new NamingRuleSet("Server/GlobalNamingResources/"));
         digester.addRuleSet(new EngineRuleSet("Server/Service/"));
         digester.addRuleSet(new HostRuleSet("Server/Service/Engine/"));
@@ -402,7 +423,7 @@ public class Catalina {
     }
 
     /**
-     * Cluster support is optional. The JARs may have been removed.
+     * 使用digester为指定xml规则添加  ClusterRuleSet规则组
      */
     private void addClusterRuleSet(Digester digester, String prefix) {
         Class<?> clazz = null;
@@ -424,16 +445,14 @@ public class Catalina {
     }
 
     /**
-     * Create and configure the Digester we will be using for shutdown.
-     * @return the digester to process the stop operation
+     * 创建并配置我们将用于关闭的Digester。
      */
     protected Digester createStopDigester() {
 
-        // Initialize the digester
         Digester digester = new Digester();
+        /** 使用上下文类加载器 **/
         digester.setUseContextClassLoader(true);
 
-        // Configure the rules we need for shutting down
         digester.addObjectCreate("Server",
                                  "org.apache.catalina.core.StandardServer",
                                  "className");
@@ -443,21 +462,29 @@ public class Catalina {
                             "org.apache.catalina.Server");
 
         return (digester);
-
     }
 
 
+    /**
+     * 停止Tomcat容器
+     */
     public void stopServer() {
         stopServer(null);
     }
 
+    /**
+     * 停止Tomcat容器
+     */
     public void stopServer(String[] arguments) {
 
+        /** 处理指定的命令行参数 **/
         if (arguments != null) {
             arguments(arguments);
         }
 
+        /** 获取tomcat Server组件实例 **/
         Server s = getServer();
+        /** 如果omcat Server组件实例不存在，使用Digester构造一个tomcat Server组件 **/
         if (s == null) {
             // Create and execute our Digester
             Digester digester = createStopDigester();
@@ -473,7 +500,7 @@ public class Catalina {
                 System.exit(1);
             }
         } else {
-            // Server object already present. Must be running as a service
+            /** 对存在Tomcat Server组件执行停止，销毁动作 **/
             try {
                 s.stop();
                 s.destroy();
@@ -483,7 +510,9 @@ public class Catalina {
             return;
         }
 
-        // Stop the existing server
+        /**
+         * 向Tomcat Server指定的端口发送shutdown指令
+         */
         s = getServer();
         if (s.getPort()>0) {
             try (Socket socket = new Socket(s.getAddress(), s.getPort());
@@ -643,8 +672,8 @@ public class Catalina {
     }
 
 
-    /*
-     * Load using arguments
+    /**
+     * 加载tomcat容器
      */
     public void load(String args[]) {
 
@@ -701,24 +730,25 @@ public class Catalina {
 
         /**  判断是否需要向JVM注册一个钩子线程， **/
         if (useShutdownHook) {
-
+            /** 初始化CatalinaShutdownHook **/
             if (shutdownHook == null) {
                 shutdownHook = new CatalinaShutdownHook();
             }
+            /**将shutdownHook注册JMV**/
             Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-            // If JULI is being used, disable JULI's shutdown hook since
-            // shutdown hooks run in parallel and log messages may be lost
-            // if JULI's hook completes before the CatalinaShutdownHook()
+            /** 向logManager设置已经向JVM注册钩子线程标识 **/
             LogManager logManager = LogManager.getLogManager();
             if (logManager instanceof ClassLoaderLogManager) {
                 ((ClassLoaderLogManager) logManager).setUseShutdownHook(
                         false);
             }
         }
-
+        /** Bootstrap.init()之后await设置true， **/
         if (await) {
+            /** 启动一个Socket等待接受shutdown命令，用来停止Tomcat **/
             await();
+            /** 停止tomcat容器 **/
             stop();
         }
     }
@@ -767,7 +797,7 @@ public class Catalina {
 
 
     /**
-     * 等待并关闭。 ？？
+     * init()之后await为true，启动一个Socket等待接受shutdown命令，用来停止Tomcat
      */
     public void await() {
 
@@ -849,8 +879,7 @@ public class Catalina {
 
 
     /**
-     * 读取conf/catalina.properties中package.access，package.definition属性
-     * 获取受保护类包注册到Security中
+     * 从catalina.properties获取受保护类，注册到Security中
      */
     protected void setSecurityProtection(){
         SecurityConfig securityConfig = SecurityConfig.newInstance();

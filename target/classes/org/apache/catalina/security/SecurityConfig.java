@@ -47,25 +47,27 @@ public final class SecurityConfig{
                                                 + ",org.apache.tomcat."
                                                 + ",org.apache.jasper.";
     /**
-     * List of protected package from conf/catalina.properties
+     * conf / catalina.properties中受保护包的列表
      */
     private final String packageDefinition;
 
 
     /**
-     * List of protected package from conf/catalina.properties
+     * conf / catalina.properties中受保护包的列表
      */
     private final String packageAccess;
 
 
     /**
-     * Create a single instance of this class.
+     * 创建SecurityConfig的单个实例。
      */
     private SecurityConfig() {
         String definition = null;
         String access = null;
         try{
+            /** 读取conf / catalina.properties 属性package.definition **/
             definition = CatalinaProperties.getProperty("package.definition");
+            /** 读取conf / catalina.properties 属性package.access **/
             access = CatalinaProperties.getProperty("package.access");
         } catch (java.lang.Exception ex){
             if (log.isDebugEnabled()){
@@ -79,7 +81,7 @@ public final class SecurityConfig{
 
 
     /**
-     * Returns the singleton instance of that class.
+     * 返回该类的单例实例。
      * @return an instance of that class.
      */
     public static SecurityConfig newInstance(){
@@ -91,7 +93,7 @@ public final class SecurityConfig{
 
 
     /**
-     * Set the security package.access value.
+     * 设置安全性package.access值。
      */
     public void setPackageAccess(){
         // If catalina.properties is missing, protect all by default.
@@ -104,7 +106,7 @@ public final class SecurityConfig{
 
 
     /**
-     * Set the security package.definition value.
+     * 设置安全性package.definition值。
      */
      public void setPackageDefinition(){
         // If catalina.properties is missing, protect all by default.
@@ -117,7 +119,7 @@ public final class SecurityConfig{
 
 
     /**
-     * Set the proper security property
+     * 将收到保护包设置到Security
      * @param properties the package.* property.
      */
     private final void setSecurityProperty(String properties, String packageList){
