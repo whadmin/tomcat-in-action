@@ -358,7 +358,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     }
 
     /**
-     * 停止监听关闭Socket,并中断处理关闭tomcat的线程
+     * 停止监听 shutdown命令 Socket服务
      */
     public void stopAwait() {
         /** **/
@@ -727,12 +727,14 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     @Override
     protected void startInternal() throws LifecycleException {
 
+        /** 通知监听器当前组件触发 CONFIGURE_START_EVENT事件 **/
         fireLifecycleEvent(CONFIGURE_START_EVENT, null);
+        /** 更正当前组件状态为STARTING  **/
         setState(LifecycleState.STARTING);
-
+        /** 启动JNDI服务 **/
         globalNamingResources.start();
 
-        // Start our defined Services
+        /** 启动所有service组件 **/
         synchronized (servicesLock) {
             for (int i = 0; i < services.length; i++) {
                 services[i].start();
@@ -747,16 +749,22 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     @Override
     protected void stopInternal() throws LifecycleException {
 
-        setState(LifecycleState.STOPPING);
+
+        /** 通知监听器当前组件触发 CONFIGURE_STOP_EVENT事件 **/
         fireLifecycleEvent(CONFIGURE_STOP_EVENT, null);
 
-        // Stop our defined Services
+        /** 更正当前组件状态为STOPPING  **/
+        setState(LifecycleState.STOPPING);
+
+        /** 关闭所有service组件 **/
         for (int i = 0; i < services.length; i++) {
             services[i].stop();
         }
 
+        /** 关闭JNDI服务 **/
         globalNamingResources.stop();
 
+        /** 停止监听 shutdown命令 Socket服务 **/
         stopAwait();
     }
 
@@ -768,26 +776,23 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
 
         super.initInternal();
 
-        // Register global String cache
-        // Note although the cache is global, if there are multiple Servers
-        // present in the JVM (may happen when embedding) then the same cache
-        // will be registered under multiple names
+        //StringCache注册到JMX bean中 StringCache ???
         onameStringCache = register(new StringCache(), "type=StringCache");
 
-        // Register the MBeanFactory
+        //MBeanFactory注册到JMX bean中 MBeanFactory ???
         MBeanFactory factory = new MBeanFactory();
         factory.setContainer(this);
         onameMBeanFactory = register(factory, "type=MBeanFactory");
 
-        // Register the naming resources
+        /** JNDI服务初始化 **/
         globalNamingResources.init();
 
-        // Populate the extension validator with JARs from common and shared
-        // class loaders
+
         if (getCatalina() != null) {
+            /** 获取Shared类加载器 **/
             ClassLoader cl = getCatalina().getParentClassLoader();
-            // Walk the class loader hierarchy. Stop at the system class loader.
-            // This will add the shared (if present) and common class loaders
+            /** 读取Shared类加载器 管理的jar文件
+             * 检查给定的系统JAR文件是否包含MANIFEST，并将*添加到容器的清单资源中。**/
             while (cl != null && cl != ClassLoader.getSystemClassLoader()) {
                 if (cl instanceof URLClassLoader) {
                     URL[] urls = ((URLClassLoader) cl).getURLs();
@@ -797,6 +802,8 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
                                 File f = new File (url.toURI());
                                 if (f.isFile() &&
                                         f.getName().endsWith(".jar")) {
+                                    /** 检查给定的系统JAR文件是否包含MANIFEST，并将*添加到容器的清单资源中。 **/
+                                    //ExtensionValidator ???
                                     ExtensionValidator.addSystemResource(f);
                                 }
                             } catch (URISyntaxException e) {
@@ -810,7 +817,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
                 cl = cl.getParent();
             }
         }
-        // Initialize our defined Services
+        /** 初始化所有service组件 **/
         for (int i = 0; i < services.length; i++) {
             services[i].init();
         }

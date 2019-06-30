@@ -56,7 +56,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
     // ----------------------------------------------------- Instance Variables
 
     /**
-     * The name of this service.
+     * 服务的名称对应  <Service name="Catalina">
      */
     private String name = null;
 
