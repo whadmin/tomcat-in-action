@@ -194,12 +194,16 @@ public class StandardService extends LifecycleMBeanBase implements Service {
     public void addConnector(Connector connector) {
 
         synchronized (connectorsLock) {
+           /** connector 反向关联外部 Service 组件 **/
             connector.setService(this);
+
+            /** 将Connector组件添加到Service 组件的数组中 **/
             Connector results[] = new Connector[connectors.length + 1];
             System.arraycopy(connectors, 0, results, 0, connectors.length);
             results[connectors.length] = connector;
             connectors = results;
 
+            /** 如果当前Service组件已经启动，则启动添加Connector 组件 **/
             if (getState().isAvailable()) {
                 try {
                     connector.start();
@@ -210,29 +214,10 @@ public class StandardService extends LifecycleMBeanBase implements Service {
                 }
             }
 
-            // Report this property change to interested listeners
+            /** 将connector属性更改通知给监听器  **/
             support.firePropertyChange("connector", null, connector);
         }
-
     }
-
-
-    public ObjectName[] getConnectorNames() {
-        ObjectName results[] = new ObjectName[connectors.length];
-        for (int i=0; i<results.length; i++) {
-            results[i] = connectors[i].getObjectName();
-        }
-        return results;
-    }
-
-
-    /**
-     * 向此组件添加属性更改侦听器。
-     */
-    public void addPropertyChangeListener(PropertyChangeListener listener) {
-        support.addPropertyChangeListener(listener);
-    }
-
 
     /**
      * 返回所有 Connector子组件
@@ -284,16 +269,34 @@ public class StandardService extends LifecycleMBeanBase implements Service {
             }
             connectors = results;
 
-            // Report this property change to interested listeners
+            /** support通知 connector属性变更 **/
             support.firePropertyChange("connector", connector, null);
         }
     }
 
 
     /**
-     * Remove a property change listener from this component.
-     *
-     * @param listener The listener to remove
+     * 返回所有Connector在JMX 中ObjectName
+     */
+    public ObjectName[] getConnectorNames() {
+        ObjectName results[] = new ObjectName[connectors.length];
+        for (int i=0; i<results.length; i++) {
+            results[i] = connectors[i].getObjectName();
+        }
+        return results;
+    }
+
+
+    /**
+     * 向此组件添加属性更改侦听器。
+     */
+    public void addPropertyChangeListener(PropertyChangeListener listener) {
+        support.addPropertyChangeListener(listener);
+    }
+
+
+    /**
+     * 从此组件中删除属性更改侦听器。
      */
     public void removePropertyChangeListener(PropertyChangeListener listener) {
         support.removePropertyChangeListener(listener);
@@ -301,7 +304,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Return a String representation of this component.
+     * 返回此组件的String表示形式。
      */
     @Override
     public String toString() {
@@ -313,14 +316,16 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Adds a named executor to the service
-     * @param ex Executor
+     * 向Service组件添加线程池
+     * Executor 扩展了线程池，作为tomcat的一个组件
      */
     @Override
     public void addExecutor(Executor ex) {
         synchronized (executors) {
             if (!executors.contains(ex)) {
                 executors.add(ex);
+
+                /** 如果当前Service组件已经启动，则启动 线程池 组件 **/
                 if (getState().isAvailable()) {
                     try {
                         ex.start();
@@ -334,8 +339,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Retrieves all executors
-     * @return Executor[]
+     * 返回Service组件中所有线程池组件
      */
     @Override
     public Executor[] findExecutors() {
@@ -348,9 +352,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Retrieves executor by name, null if not found
-     * @param executorName String
-     * @return Executor
+     * 通过名称获取Service中指定线程池组件
      */
     @Override
     public Executor getExecutor(String executorName) {
@@ -365,8 +367,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Removes an executor from the service
-     * @param ex Executor
+     * 删除Service线程池中只当线程池组件
      */
     @Override
     public void removeExecutor(Executor ex) {
@@ -383,36 +384,35 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Start nested components ({@link Executor}s, {@link Connector}s and
-     * {@link Container}s) and implement the requirements of
-     * {@link org.apache.catalina.util.LifecycleBase#startInternal()}.
-     *
-     * @exception LifecycleException if this component detects a fatal error
-     *  that prevents this component from being used
+     * 组件启动模板方法实现
      */
     @Override
     protected void startInternal() throws LifecycleException {
 
         if(log.isInfoEnabled())
             log.info(sm.getString("standardService.start.name", this.name));
+
+        /** 更正当前组件状态为STARTING  **/
         setState(LifecycleState.STARTING);
 
-        // Start our defined Container first
+        /** 启动engine 子组件 **/
         if (engine != null) {
             synchronized (engine) {
                 engine.start();
             }
         }
 
+        /** 启动所有Executor 子组件 **/
         synchronized (executors) {
             for (Executor executor: executors) {
                 executor.start();
             }
         }
 
+        /** 启动mapperListener 子组件 **/
         mapperListener.start();
 
-        // Start our defined Connectors second
+        /** 启动所有Connector 子组件 **/
         synchronized (connectorsLock) {
             for (Connector connector: connectors) {
                 try {
@@ -431,17 +431,12 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Stop nested components ({@link Executor}s, {@link Connector}s and
-     * {@link Container}s) and implement the requirements of
-     * {@link org.apache.catalina.util.LifecycleBase#stopInternal()}.
-     *
-     * @exception LifecycleException if this component detects a fatal error
-     *  that needs to be reported
+     * 组件停止模板方法实现
      */
     @Override
     protected void stopInternal() throws LifecycleException {
 
-        // Pause connectors first
+        /** 暂停所有Connector 子组件 **/
         synchronized (connectorsLock) {
             for (Connector connector: connectors) {
                 try {
@@ -451,24 +446,24 @@ public class StandardService extends LifecycleMBeanBase implements Service {
                             "standardService.connector.pauseFailed",
                             connector), e);
                 }
-                // Close server socket if bound on start
-                // Note: test is in AbstractEndpoint
+                /** 关闭服务Socket **/
                 connector.getProtocolHandler().closeServerSocketGraceful();
             }
         }
 
         if(log.isInfoEnabled())
             log.info(sm.getString("standardService.stop.name", this.name));
+        /** 更正当前组件状态为STOPPING  **/
         setState(LifecycleState.STOPPING);
 
-        // Stop our defined Container second
+        /** 关闭engine 子组件 **/
         if (engine != null) {
             synchronized (engine) {
                 engine.stop();
             }
         }
 
-        // Now stop the connectors
+        /** 关闭所有状态为STARTED Connector子组件 **/
         synchronized (connectorsLock) {
             for (Connector connector: connectors) {
                 if (!LifecycleState.STARTED.equals(
@@ -488,12 +483,12 @@ public class StandardService extends LifecycleMBeanBase implements Service {
             }
         }
 
-        // If the Server failed to start, the mapperListener won't have been
-        // started
+        //关闭mapperListener ???
         if (mapperListener.getState() != LifecycleState.INITIALIZED) {
             mapperListener.stop();
         }
 
+        /** 关闭所有Executor 子组件 **/
         synchronized (executors) {
             for (Executor executor: executors) {
                 executor.stop();
@@ -503,19 +498,20 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Invoke a pre-startup initialization. This is used to allow connectors
-     * to bind to restricted ports under Unix operating environments.
+     * 组件初始化模板方法实现
      */
     @Override
     protected void initInternal() throws LifecycleException {
 
+
         super.initInternal();
 
+        /** 初始化engine 子组件 **/
         if (engine != null) {
             engine.init();
         }
 
-        // Initialize any Executors
+        /** 初始化所有Executor 子组件 **/
         for (Executor executor : findExecutors()) {
             if (executor instanceof JmxEnabled) {
                 ((JmxEnabled) executor).setDomain(getDomain());
@@ -523,10 +519,10 @@ public class StandardService extends LifecycleMBeanBase implements Service {
             executor.init();
         }
 
-        // Initialize mapper listener
+        /** 初始化mapperListener 子组件 **/
         mapperListener.init();
 
-        // Initialize our defined Connectors
+        /** 初始化所有Connector 子组件 **/
         synchronized (connectorsLock) {
             for (Connector connector : connectors) {
                 try {
@@ -543,12 +539,15 @@ public class StandardService extends LifecycleMBeanBase implements Service {
         }
     }
 
-
+    /**
+     * 组件销毁模板方法实现
+     */
     @Override
     protected void destroyInternal() throws LifecycleException {
+        /** 销毁 mapperListener **/
         mapperListener.destroy();
 
-        // Destroy our defined Connectors
+        /** 销毁所有Connector 子组件 **/
         synchronized (connectorsLock) {
             for (Connector connector : connectors) {
                 try {
@@ -560,11 +559,12 @@ public class StandardService extends LifecycleMBeanBase implements Service {
             }
         }
 
-        // Destroy any Executors
+        /** 销毁所有Executor 子组件 **/
         for (Executor executor : findExecutors()) {
             executor.destroy();
         }
 
+        /** 销毁engine 子组件 **/
         if (engine != null) {
             engine.destroy();
         }
@@ -574,7 +574,8 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Return the parent class loader for this component.
+     * 获取父类加载器，这里parentClassLoader默认为null
+     * 返回外部组件server.getParentClassLoader()默认是Shared类加载器
      */
     @Override
     public ClassLoader getParentClassLoader() {
@@ -588,9 +589,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * Set the parent class loader for this server.
-     *
-     * @param parent The new parent class loader
+     * 设置父类加载器
      */
     @Override
     public void setParentClassLoader(ClassLoader parent) {
@@ -601,6 +600,21 @@ public class StandardService extends LifecycleMBeanBase implements Service {
     }
 
 
+    /**
+     * ObjectName 表示注册到JMX中Bean所对应的对象名称
+     *
+     * StringBuilder name = new StringBuilder(getDomain());
+     * name.append(':');
+     * name.append(objectNameKeyProperties);
+     * ObjectName on = new ObjectName(name.toString());
+     *
+     * ObjectName名称组成由
+     * 域名空间：对象属性组成
+     * getDomain():getObjectNameKeyProperties()
+     *
+     * 当前方法是getDomain()方法扩展子类实现，该方法父类LifecycleMBeanBase模板方法实现，返回域名空间
+     * 获取子组件engine 组件域名空间作为自己域名空间
+     */
     @Override
     protected String getDomainInternal() {
         String domain = null;
@@ -621,7 +635,19 @@ public class StandardService extends LifecycleMBeanBase implements Service {
         return domain;
     }
 
-
+    /**
+     * ObjectName 表示注册到JMX中Bean所对应的对象名称
+     *
+     * StringBuilder name = new StringBuilder(getDomain());
+     * name.append(':');
+     * name.append(objectNameKeyProperties);
+     * ObjectName on = new ObjectName(name.toString());
+     *
+     * ObjectName名称组成由
+     * 域名空间：对象属性集合
+     * getDomain():getObjectNameKeyProperties()
+     * 该方法父类LifecycleMBeanBase模板方法实现，返回对象属性集合
+     */
     @Override
     public final String getObjectNameKeyProperties() {
         return "type=Service";

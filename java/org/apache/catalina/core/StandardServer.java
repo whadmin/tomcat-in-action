@@ -897,6 +897,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
      * getDomain():getObjectNameKeyProperties()
      *
      * 当前方法是getDomain()方法扩展子类实现，该方法父类LifecycleMBeanBase模板方法实现，返回域名空间
+     * 获取子组件Service 组件域名空间作为自己域名空间
      */
     @Override
     protected String getDomainInternal() {

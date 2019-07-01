@@ -138,7 +138,7 @@ public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor 
     }
 
     /**
-     * {@inheritDoc}
+     * 执行一个任务
      */
     @Override
     public void execute(Runnable command) {
