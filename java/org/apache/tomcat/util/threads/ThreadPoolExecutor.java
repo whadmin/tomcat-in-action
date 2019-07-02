@@ -27,60 +27,45 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.tomcat.util.res.StringManager;
 
 /**
- * Same as a java.util.concurrent.ThreadPoolExecutor but implements a much more efficient
- * {@link #getSubmittedCount()} method, to be used to properly handle the work queue.
- * If a RejectedExecutionHandler is not specified a default one will be configured
- * and that one will always throw a RejectedExecutionException
+ * 扩展功能1
+ * Context停止动作会触发ThreadLocalLeakPreventionListener监听器响应，调用contextStopping()在线程池中记录Context停止时间。
+ * 由于每个work线程中ThreadLocal中对象在线程没有销毁时是无法回收。而work线程可能一直阻塞导致退出，导致ThreadLocal中对象无法回收，内存泄漏
+ * 因而需要在任务处理中扩展实现afterExecute，当context关闭时，抛出异常让线程对象退出。
  *
+ * 扩展功能2
+ * 在work中记录尚未完成的任务数量（由于使用链表的任务队列需要线程池自己记录）
  */
 public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor {
+
     /**
-     * The string manager for this package.
+     * 管理打印日志模板组件
      */
     protected static final StringManager sm = StringManager
             .getManager("org.apache.tomcat.util.threads.res");
 
     /**
-     * The number of tasks submitted but not yet finished. This includes tasks
-     * in the queue and tasks that have been handed to a worker thread but the
-     * latter did not start executing the task yet.
-     * This number is always greater or equal to {@link #getActiveCount()}.
+     * 提交但尚未完成的任务数量。
      */
     private final AtomicInteger submittedCount = new AtomicInteger(0);
+
+
+    /**
+     * Context 停止时间
+     */
     private final AtomicLong lastContextStoppedTime = new AtomicLong(0L);
 
     /**
-     * Most recent time in ms when a thread decided to kill itself to avoid
-     * potential memory leaks. Useful to throttle the rate of renewals of
-     * threads.
+     * Context 停止，所有work线程需要停止，用来记录最后一个work线程停止时间
      */
     private final AtomicLong lastTimeThreadKilledItself = new AtomicLong(0L);
 
     /**
-     * Delay in ms between 2 threads being renewed. If negative, do not renew threads.
+     * Context 停止会触发其work线程的停止，为避免多个work同时停止，设置时间间隔，每一段时间停止一个，用来累加
+     * lastTimeThreadKilledItself
      */
     private long threadRenewalDelay = Constants.DEFAULT_THREAD_RENEWAL_DELAY;
 
-    public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, RejectedExecutionHandler handler) {
-        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler);
-        prestartAllCoreThreads();
-    }
 
-    public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory,
-            RejectedExecutionHandler handler) {
-        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
-        prestartAllCoreThreads();
-    }
-
-    public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
-        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, new RejectHandler());
-        prestartAllCoreThreads();
-    }
-
-    public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue) {
-        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, new RejectHandler());
-        prestartAllCoreThreads();
-    }
 
     public long getThreadRenewalDelay() {
         return threadRenewalDelay;
@@ -90,18 +75,62 @@ public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor 
         this.threadRenewalDelay = threadRenewalDelay;
     }
 
+    public int getSubmittedCount() {
+        return submittedCount.get();
+    }
+
+
+    /**
+     * 创建线程池，使用默认threadFactory
+     * 初始化线程池时直接创建corePoolSize个work
+     */
+    public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, RejectedExecutionHandler handler) {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler);
+        prestartAllCoreThreads();
+    }
+
+    /**
+     * 创建线程池
+     * 初始化线程池时直接创建corePoolSize个work
+     */
+    public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory,
+            RejectedExecutionHandler handler) {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
+        prestartAllCoreThreads();
+    }
+
+    /**
+     * 创建线程池，使用RejectHandler拒绝策略，直接抛异常
+     * 初始化线程池时直接创建corePoolSize个work
+     */
+    public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, new RejectHandler());
+        prestartAllCoreThreads();
+    }
+
+    /**
+     * 创建线程池，使用默认threadFactory，使用RejectHandler拒绝策略，直接抛异常
+     * 初始化线程池时直接创建corePoolSize个work
+     */
+    public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue) {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, new RejectHandler());
+        prestartAllCoreThreads();
+    }
+
+
+
     @Override
     protected void afterExecute(Runnable r, Throwable t) {
+        /** 待完成任务 -1 **/
         submittedCount.decrementAndGet();
-
+        /** 任务没有执行调用stopCurrentThreadIfNeeded() **/
         if (t == null) {
             stopCurrentThreadIfNeeded();
         }
     }
 
     /**
-     * If the current thread was started before the last time when a context was
-     * stopped, an exception is thrown so that the current thread is stopped.
+     * 判断是否需要抛出异常停止当前线程（当context停止时会触发此动作）
      */
     protected void stopCurrentThreadIfNeeded() {
         if (currentThreadShouldBeStopped()) {
@@ -109,7 +138,6 @@ public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor 
             if (lastTime + threadRenewalDelay < System.currentTimeMillis()) {
                 if (lastTimeThreadKilledItself.compareAndSet(lastTime,
                         System.currentTimeMillis() + 1)) {
-                    // OK, it's really time to dispose of this thread
 
                     final String msg = sm.getString(
                                     "threadPoolExecutor.threadStoppedToAvoidPotentialLeak",
@@ -121,6 +149,9 @@ public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor 
         }
     }
 
+    /**
+     * 如果当前线程（work）线程的创建时间< 所在容器的停止时间则需要停止work的工作线程（抛出异常）
+     */
     protected boolean currentThreadShouldBeStopped() {
         if (threadRenewalDelay >= 0
             && Thread.currentThread() instanceof TaskThread) {
@@ -133,9 +164,6 @@ public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor 
         return false;
     }
 
-    public int getSubmittedCount() {
-        return submittedCount.get();
-    }
 
     /**
      * 执行一个任务
@@ -146,26 +174,21 @@ public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor 
     }
 
     /**
-     * Executes the given command at some time in the future.  The command
-     * may execute in a new thread, in a pooled thread, or in the calling
-     * thread, at the discretion of the <tt>Executor</tt> implementation.
-     * If no threads are available, it will be added to the work queue.
-     * If the work queue is full, the system will wait for the specified
-     * time and it throw a RejectedExecutionException if the queue is still
-     * full after that.
-     *
-     * @param command the runnable task
-     * @param timeout A timeout for the completion of the task
-     * @param unit The timeout time unit
-     * @throws RejectedExecutionException if this task cannot be
-     * accepted for execution - the queue is full
-     * @throws NullPointerException if command or unit is null
+     * 执行任务
+     * @param command 任务
+     * @param timeout 超时时间
+     * @param unit 超时单位
      */
     public void execute(Runnable command, long timeout, TimeUnit unit) {
+        /** 待处理任务数量+1 **/
         submittedCount.incrementAndGet();
         try {
+            /** JDK线程池执行任务 **/
             super.execute(command);
-        } catch (RejectedExecutionException rx) {
+        }
+        /** 当线程池触发拒绝策略时捕获异常 **/
+        catch (RejectedExecutionException rx) {
+            /** 判断线程等待队列类型是否TaskQueue **/
             if (super.getQueue() instanceof TaskQueue) {
                 final TaskQueue queue = (TaskQueue)super.getQueue();
                 try {
@@ -181,14 +204,18 @@ public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor 
                 submittedCount.decrementAndGet();
                 throw rx;
             }
-
         }
     }
 
+    /**
+     * ThreadLocalLeakPreventionListener 作用时停止当前线程（work线程处理业务）避免当前线程ThreadLocal中数据
+     * 因为线程一直运行而无法回收
+     */
     public void contextStopping() {
+        /** 设置context 停止时间 **/
         this.lastContextStoppedTime.set(System.currentTimeMillis());
 
-        // save the current pool parameters to restore them later
+        /** 获取线程池中核心work数量 **/
         int savedCorePoolSize = this.getCorePoolSize();
         TaskQueue taskQueue =
                 getQueue() instanceof TaskQueue ? (TaskQueue) getQueue() : null;
@@ -200,17 +227,15 @@ public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor 
             taskQueue.setForcedRemainingCapacity(Integer.valueOf(0));
         }
 
-        // setCorePoolSize(0) wakes idle threads
+        /** 设置线程池中核心work为0 **/
         this.setCorePoolSize(0);
 
-        // TaskQueue.take() takes care of timing out, so that we are sure that
-        // all threads of the pool are renewed in a limited time, something like
-        // (threadKeepAlive + longest request time)
-
+        /** 设置线程池中任务队列剩余容量为无限大 **/
         if (taskQueue != null) {
             // ok, restore the state of the queue and pool
             taskQueue.setForcedRemainingCapacity(null);
         }
+        /** 重置线程池中核心work数 **/
         this.setCorePoolSize(savedCorePoolSize);
     }
 

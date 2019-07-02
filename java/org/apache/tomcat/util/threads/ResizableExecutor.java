@@ -21,24 +21,28 @@ import java.util.concurrent.Executor;
 public interface ResizableExecutor extends Executor {
 
     /**
-     * Returns the current number of threads in the pool.
-     *
-     * @return the number of threads
+     * 返回线程池work数量
      */
     public int getPoolSize();
 
+    /**
+     * 返回最大线程数默认200个
+     */
     public int getMaxThreads();
 
     /**
-     * Returns the approximate number of threads that are actively executing
-     * tasks.
-     *
-     * @return the number of threads
+     * 返回正在执行任务work数量
      */
     public int getActiveCount();
 
+    /**
+     * 重置线程池corePoolSize，maximumPoolSize
+     */
     public boolean resizePool(int corePoolSize, int maximumPoolSize);
 
+    /**
+     * 重置等待队列
+     */
     public boolean resizeQueue(int capacity);
 
 }

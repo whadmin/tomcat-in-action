@@ -20,19 +20,36 @@ import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 
 /**
- * A Thread implementation that records the time at which it was created.
+ *
  *
  */
 public class TaskThread extends Thread {
 
     private static final Log log = LogFactory.getLog(TaskThread.class);
+
+    /**
+     * 任务创建时间
+     */
     private final long creationTime;
 
+    /**
+     * 创建一个任务线程
+     * @param group  线程分组
+     * @param target  线程执行业务
+     * @param name   线程任务名
+     */
     public TaskThread(ThreadGroup group, Runnable target, String name) {
         super(group, new WrappingRunnable(target), name);
         this.creationTime = System.currentTimeMillis();
     }
 
+    /**
+     * 创建一个任务线程
+     * @param group     线程分组
+     * @param target    线程执行业务
+     * @param name      线程任务名
+     * @param stackSize 新线程所需的堆栈大小
+     */
     public TaskThread(ThreadGroup group, Runnable target, String name,
             long stackSize) {
         super(group, new WrappingRunnable(target), name, stackSize);
@@ -40,15 +57,14 @@ public class TaskThread extends Thread {
     }
 
     /**
-     * @return the time (in ms) at which this thread was created
+     * 返回任务创建时间
      */
     public final long getCreationTime() {
         return creationTime;
     }
 
     /**
-     * Wraps a {@link Runnable} to swallow any {@link StopPooledThreadException}
-     * instead of letting it go and potentially trigger a break in a debugger.
+     * 任务执行Runnable
      */
     private static class WrappingRunnable implements Runnable {
         private Runnable wrappedRunnable;
