@@ -36,100 +36,92 @@ import org.apache.tomcat.util.net.SSLHostConfig;
 public interface ProtocolHandler {
 
     /**
-     * The adapter, used to call the connector.
-     *
-     * @param adapter The adapter to associate
+     * 设置adapter
      */
     public void setAdapter(Adapter adapter);
+
+
+    /**
+     * 返回adapter
+     */
     public Adapter getAdapter();
 
 
     /**
-     * The executor, provide access to the underlying thread pool.
-     *
-     * @return The executor used to process requests
+     * 获取连接池 Executor组件
      */
     public Executor getExecutor();
 
 
     /**
-     * Initialise the protocol.
-     *
-     * @throws Exception If the protocol handler fails to initialise
+     * 初始化
      */
     public void init() throws Exception;
 
 
     /**
-     * Start the protocol.
-     *
-     * @throws Exception If the protocol handler fails to start
+     * 启动
      */
     public void start() throws Exception;
 
 
     /**
-     * Pause the protocol (optional).
-     *
-     * @throws Exception If the protocol handler fails to pause
+     * 暂停
      */
     public void pause() throws Exception;
 
 
     /**
-     * Resume the protocol (optional).
-     *
-     * @throws Exception If the protocol handler fails to resume
+     * 恢复
      */
     public void resume() throws Exception;
 
 
     /**
-     * Stop the protocol.
-     *
-     * @throws Exception If the protocol handler fails to stop
+     * 停止
      */
     public void stop() throws Exception;
 
 
     /**
-     * Destroy the protocol (optional).
-     *
-     * @throws Exception If the protocol handler fails to destroy
+     * 销毁
      */
     public void destroy() throws Exception;
 
 
     /**
-     * Close the server socket (to prevent further connections) if the server
-     * socket was bound on {@link #start()} (rather than on {@link #init()}
-     * but do not perform any further shutdown.
+     * 关闭服务端连接
      */
     public void closeServerSocketGraceful();
 
 
     /**
-     * Requires APR/native library
-     *
-     * @return <code>true</code> if this Protocol Handler requires the
-     *         APR/native library, otherwise <code>false</code>
+     * 是否是请求APR请求
      */
     public boolean isAprRequired();
 
 
     /**
-     * Does this ProtocolHandler support sendfile?
-     *
-     * @return <code>true</code> if this Protocol Handler supports sendfile,
-     *         otherwise <code>false</code>
+     * 这个ProtocolHandler是否支持sendfile
      */
     public boolean isSendfileSupported();
 
 
+    /**
+     * 添加SSLHostConfig
+     */
     public void addSslHostConfig(SSLHostConfig sslHostConfig);
     public SSLHostConfig[] findSslHostConfigs();
 
 
+    /**
+     * 添加UpgradeProtocol
+     */
     public void addUpgradeProtocol(UpgradeProtocol upgradeProtocol);
+
+
+    /**
+     * 添加UpgradeProtocol
+     */
     public UpgradeProtocol[] findUpgradeProtocols();
 }

@@ -361,13 +361,6 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
     }
 
 
-    /**
-     * The name will be prefix-address-port if address is non-null and
-     * prefix-port if the address is null.
-     *
-     * @return A name for this protocol instance that is appropriately quoted
-     *         for use in an ObjectName.
-     */
     public String getName() {
         return ObjectName.quote(getNameInternal());
     }
@@ -1129,9 +1122,6 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
     }
 
 
-    /**
-     * Async timeout thread
-     */
     protected class AsyncTimeout implements Runnable {
 
         private volatile boolean asyncTimeoutRunning = true;
