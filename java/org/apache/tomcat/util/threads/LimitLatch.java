@@ -24,9 +24,9 @@ import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 
 /**
- * Shared latch that allows the latch to be acquired a limited number of times
- * after which all subsequent requests to acquire the latch will be placed in a
- * FIFO queue until one of the shares is returned.
+ * Tomcat作为web服务器，对于每个客户端的请求将给予处理响应，但对于一台机器而言，访问请求的总流量有高峰期且服务器有物理极限，
+ * 为了保证web服务器不被冲垮我们需要采取一些措施进行保护预防，需要稍微说明的此处的流量更多的是指套接字的连接数，通过控制套接字连接个数来控制流量。其中一种有效的方法就是采取流量控制，
+ * 它就像在流量的入口增加了一道闸门，闸门的大小决定了流量的大小，一旦达到最大流量将关闭闸门停止接收直到有空闲通道。limit使用AQS实现这样一个流量控制器
  */
 public class LimitLatch {
 
@@ -38,6 +38,10 @@ public class LimitLatch {
         public Sync() {
         }
 
+        /**
+         * 重写AQS 获取共享式同步状态的方法
+         * 当连接数限制器开打，且新连接没有草果限制返回 1 表示连接可以创建，否则返回-1
+         */
         @Override
         protected int tryAcquireShared(int ignored) {
             long newCount = count.incrementAndGet();
@@ -50,6 +54,11 @@ public class LimitLatch {
             }
         }
 
+        /**
+         * 重写AQS 释放共享式同步状态的方法
+         * 当前连接数量-1，返回true,返回true会释放在同步队列的节点中的线程去竞争同步状态，失败则阻塞，成功则创建新连接，
+         * 创建连接完成后，再次调用当前方法迭代。
+         */
         @Override
         protected boolean tryReleaseShared(int arg) {
             count.decrementAndGet();
@@ -57,14 +66,25 @@ public class LimitLatch {
         }
     }
 
+    /**
+     * 同步器
+     */
     private final Sync sync;
+    /**
+     * 当前连接数量
+     */
     private final AtomicLong count;
+    /**
+     * 限制的连接数量
+     */
     private volatile long limit;
+    /**
+     * 是否打开连接数限制器 false表示默认打开
+     */
     private volatile boolean released = false;
 
     /**
-     * Instantiates a LimitLatch object with an initial limit.
-     * @param limit - maximum number of concurrent acquisitions of this latch
+     * 创建一个连接控制器
      */
     public LimitLatch(long limit) {
         this.limit = limit;
@@ -72,43 +92,24 @@ public class LimitLatch {
         this.sync = new Sync();
     }
 
-    /**
-     * Returns the current count for the latch
-     * @return the current count for latch
-     */
+
     public long getCount() {
         return count.get();
     }
 
-    /**
-     * Obtain the current limit.
-     * @return the limit
-     */
+
     public long getLimit() {
         return limit;
     }
 
 
-    /**
-     * Sets a new limit. If the limit is decreased there may be a period where
-     * more shares of the latch are acquired than the limit. In this case no
-     * more shares of the latch will be issued until sufficient shares have been
-     * returned to reduce the number of acquired shares of the latch to below
-     * the new limit. If the limit is increased, threads currently in the queue
-     * may not be issued one of the newly available shares until the next
-     * request is made for a latch.
-     *
-     * @param limit The new limit
-     */
     public void setLimit(long limit) {
         this.limit = limit;
     }
 
 
     /**
-     * Acquires a shared latch if one is available or waits for one if no shared
-     * latch is current available.
-     * @throws InterruptedException If the current thread is interrupted
+     * 尝试获取共享式同步状态，失败则加入同步队列，同时阻塞
      */
     public void countUpOrAwait() throws InterruptedException {
         if (log.isDebugEnabled()) {
@@ -118,8 +119,7 @@ public class LimitLatch {
     }
 
     /**
-     * Releases a shared latch, making it available for another thread to use.
-     * @return the previous counter value
+     * 释放共享式同步状态，
      */
     public long countDown() {
         sync.releaseShared(0);
@@ -131,9 +131,7 @@ public class LimitLatch {
     }
 
     /**
-     * Releases all waiting threads and causes the {@link #limit} to be ignored
-     * until {@link #reset()} is called.
-     * @return <code>true</code> if release was done
+     * 关闭控制连接器，释放同步状态，
      */
     public boolean releaseAll() {
         released = true;
@@ -141,27 +139,25 @@ public class LimitLatch {
     }
 
     /**
-     * Resets the latch and initializes the shared acquisition counter to zero.
-     * @see #releaseAll()
+     * 重置控制连接器，设置连接数为0，同时开打
      */
     public void reset() {
         this.count.set(0);
         released = false;
     }
 
+
     /**
-     * Returns <code>true</code> if there is at least one thread waiting to
-     * acquire the shared lock, otherwise returns <code>false</code>.
-     * @return <code>true</code> if threads are waiting
+     * 返回同步队列中是否存在等待线程
      */
     public boolean hasQueuedThreads() {
         return sync.hasQueuedThreads();
     }
 
+
     /**
-     * Provide access to the list of threads waiting to acquire this limited
-     * shared latch.
-     * @return a collection of threads
+     * 返回同步队列中等待线程
+     * @return
      */
     public Collection<Thread> getQueuedThreads() {
         return sync.getQueuedThreads();
