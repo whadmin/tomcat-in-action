@@ -460,7 +460,7 @@ public class MapperListener extends LifecycleMBeanBase
 
         /** 获取 context组件版本信息 **/
         String version = context.getWebappVersion();
-        /** 获取wrapper父组件host组件名称 **/
+        /** 获取wrapper父组件host名称 **/
         String hostName = context.getParent().getName();
 
         /** 将wrapper组件映射配置封装为WrapperMappingInfo，放入列表wrappers **/
@@ -478,20 +478,24 @@ public class MapperListener extends LifecycleMBeanBase
 
 
     /**
-     * Register context.
+     * 将Context组注册到mapper中
      */
     private void registerContext(Context context) {
 
+        /** 获取context组件的根路径  **/
         String contextPath = context.getPath();
         if ("/".equals(contextPath)) {
             contextPath = "";
         }
+
+        /** 获取wrapper父组件host **/
         Host host = (Host)context.getParent();
 
         WebResourceRoot resources = context.getResources();
         String[] welcomeFiles = context.findWelcomeFiles();
         List<WrapperMappingInfo> wrappers = new ArrayList<>();
 
+        /** 遍历Context组件所有子组件Wrapper，将wrapper组件映射配置注册到mapper中 **/
         for (Container container : context.findChildren()) {
             prepareWrapperMappingInfo(context, (Wrapper) container, wrappers);
 
@@ -501,6 +505,7 @@ public class MapperListener extends LifecycleMBeanBase
             }
         }
 
+        /** 将Context组件所有欢迎列表文件注册到mapper中 **/
         mapper.addContextVersion(host.getName(), host, contextPath,
                 context.getWebappVersion(), context, welcomeFiles, resources,
                 wrappers);
@@ -513,16 +518,20 @@ public class MapperListener extends LifecycleMBeanBase
 
 
     /**
-     * 将Context组从mapper中注销
+     * 将Context组件从mapper中注销
      */
     private void unregisterContext(Context context) {
 
+        /** 获取context组件的根路径  **/
         String contextPath = context.getPath();
         if ("/".equals(contextPath)) {
             contextPath = "";
         }
+
+        /** 获取wrapper父组件host名称 **/
         String hostName = context.getParent().getName();
 
+        /** 如果context组件暂停则暂停注册到mapper中context **/
         if (context.getPaused()) {
             if (log.isDebugEnabled()) {
                 log.debug(sm.getString("mapperListener.pauseContext",
