@@ -46,10 +46,16 @@ public class Http11NioProtocol extends AbstractHttp11JsseProtocol<NioChannel> {
 
     // -------------------- Pool setup --------------------
 
+    /**
+     * 设置Endpoint子组件中获取Poller的数量
+     */
     public void setPollerThreadCount(int count) {
         ((NioEndpoint)getEndpoint()).setPollerThreadCount(count);
     }
 
+    /**
+     * 返回Endpoint子组件中获取Poller的数量
+     */
     public int getPollerThreadCount() {
         return ((NioEndpoint)getEndpoint()).getPollerThreadCount();
     }
@@ -73,6 +79,9 @@ public class Http11NioProtocol extends AbstractHttp11JsseProtocol<NioChannel> {
 
     // ----------------------------------------------------- JMX related methods
 
+    /**
+     * @return 获取名称前缀
+     */
     @Override
     protected String getNamePrefix() {
         if (isSSLEnabled()) {

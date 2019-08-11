@@ -68,7 +68,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
 
 
     /**
-     * 构造此类的默认实例。
+     * 默认构造函数。
      */
     public StandardServer() {
         super();
@@ -85,24 +85,11 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     }
 
     // ---------JNDI相关属性 star
-    /**
-     * Global naming resources context.
-     */
     private javax.naming.Context globalNamingContext = null;
 
-
-    /**
-     * Global naming resources.
-     */
     private NamingResourcesImpl globalNamingResources = null;
 
-
-    /**
-     * The naming context listener for this web application.
-     */
     private final NamingContextListener namingContextListener;
-
-
     // ---------JNDI相关属性 end
 
 
@@ -139,12 +126,12 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     private volatile boolean stopAwait = false;
 
     /**
-     * 执行ShutDown 处理线程
+     * 执行ShutDown命令处理线程
      */
     private volatile Thread awaitThread = null;
 
     /**
-     * 执行ShutDown 服务端监听Socket
+     * 执行ShutDown命令服务端监听Socket
      */
     private volatile ServerSocket awaitSocket = null;
 
@@ -215,14 +202,22 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     }
 
 
+    /**
+     * 设置globalNamingResources属性
+     */
     @Override
     public void setGlobalNamingResources
         (NamingResourcesImpl globalNamingResources) {
 
+        /** 获取设置前globalNamingResources **/
         NamingResourcesImpl oldGlobalNamingResources =
             this.globalNamingResources;
+
+        /** 设置globalNamingResources **/
         this.globalNamingResources = globalNamingResources;
         this.globalNamingResources.setContainer(this);
+
+        /** 触发属性变更通知 **/
         support.firePropertyChange("globalNamingResources",
                                    oldGlobalNamingResources,
                                    this.globalNamingResources);
@@ -336,7 +331,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
         service.setServer(this);
 
         synchronized (servicesLock) {
-            /** 将service组件添加到Server 组件的数组中 **/
+            /** 将service组件添加到Server.ervices数组类型属性中 **/
             Service results[] = new Service[services.length + 1];
             System.arraycopy(services, 0, results, 0, services.length);
             results[services.length] = service;
@@ -358,7 +353,9 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     }
 
     /**
-     * 停止监听 shutdown命令 Socket服务
+     * 1 设置stopAwait标识为true，stopAwait用来判断tomcat主线程是否要退出
+     *
+     * 2 关闭Socket服务，不在监听shutdown命令
      */
     public void stopAwait() {
         /** **/
@@ -384,8 +381,9 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     }
 
     /**
-     * 等到收到正确的关机命令，然后返回。 ,
-     * 这使主线程保持活动状态 - 侦听http *连接的线程池是守护程序线程。
+     * 阻塞tomcat主线程，
+     *
+     * 只要stopAwait不为true， tomcat主线程在此无限循环.监听到客户端发起SHUTDOWN命令后退出
      */
     @Override
     public void await() {
@@ -423,7 +421,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
             /** 获取当前线程 **/
             awaitThread = Thread.currentThread();
 
-            /** 只要没有停止， tomcat主线程在此无限循环，等待shutdown命令推出 **/
+            /** 只要stopAwait不为true， tomcat主线程在此无限循环.监听到客户端发起SHUTDOWN命令后退出 **/
             while (!stopAwait) {
                 ServerSocket serverSocket = awaitSocket;
                 if (serverSocket == null) {
@@ -606,7 +604,6 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
             /** support通知service属性变更 **/
             support.firePropertyChange("service", service, null);
         }
-
     }
 
 
@@ -764,7 +761,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
         /** 关闭JNDI服务 **/
         globalNamingResources.stop();
 
-        /** 停止监听 shutdown命令 Socket服务 **/
+        /** 设置stopAwait标识为true,关闭Socket服务，不在监听shutdown命令 **/
         stopAwait();
     }
 
@@ -787,12 +784,11 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
         /** JNDI服务初始化 **/
         globalNamingResources.init();
 
-
+        /** 读取Shared类加载器 管理的jar文件，将包含MANIFEST的JAR文件，添加到容器的清单资源中 **/
         if (getCatalina() != null) {
             /** 获取Shared类加载器 **/
             ClassLoader cl = getCatalina().getParentClassLoader();
-            /** 读取Shared类加载器 管理的jar文件
-             * 检查给定的系统JAR文件是否包含MANIFEST，并将*添加到容器的清单资源中。**/
+
             while (cl != null && cl != ClassLoader.getSystemClassLoader()) {
                 if (cl instanceof URLClassLoader) {
                     URL[] urls = ((URLClassLoader) cl).getURLs();
@@ -802,8 +798,6 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
                                 File f = new File (url.toURI());
                                 if (f.isFile() &&
                                         f.getName().endsWith(".jar")) {
-                                    /** 检查给定的系统JAR文件是否包含MANIFEST，并将*添加到容器的清单资源中。 **/
-                                    //ExtensionValidator ???
                                     ExtensionValidator.addSystemResource(f);
                                 }
                             } catch (URISyntaxException e) {
@@ -835,10 +829,10 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
         /** JNDI 资源管理销毁 **/
         globalNamingResources.destroy();
 
-        /** jmx 注销onameMBeanFactory **/
+        /** jmx bean注销MBeanFactory **/
         unregister(onameMBeanFactory);
 
-        /** jmx 注销onameStringCache **/
+        /** jmx bean注销StringCache **/
         unregister(onameStringCache);
 
         /** 调用LifecycleMBeanBase.destroyInternal

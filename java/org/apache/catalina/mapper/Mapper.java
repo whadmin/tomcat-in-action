@@ -79,11 +79,12 @@ public final class Mapper {
     // --------------------------------------------------------- Public Methods
 
     /**
-     * Set default host.
+     * 设置默认的Host组件
      *
-     * @param defaultHostName Default host name
+     * @param defaultHostName 默认的host组件名称
      */
     public synchronized void setDefaultHostName(String defaultHostName) {
+        /** 过滤掉"*." **/
         this.defaultHostName = renameWildcardHost(defaultHostName);
         if (this.defaultHostName == null) {
             defaultHost = null;

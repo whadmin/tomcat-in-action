@@ -70,9 +70,13 @@ public class Connector extends LifecycleMBeanBase  {
         this(null);
     }
 
+    /**
+     * 实例化Connector
+     * @param protocol
+     */
     public Connector(String protocol) {
         setProtocol(protocol);
-        // Instantiate protocol handler
+        /**  使用反射实例化ProtocolHandler **/
         ProtocolHandler p = null;
         try {
             Class<?> clazz = Class.forName(protocolHandlerClassName);
@@ -91,179 +95,164 @@ public class Connector extends LifecycleMBeanBase  {
         }
     }
 
-
-    // ----------------------------------------------------- Instance Variables
-
-
     /**
-     * The <code>Service</code> we are associated with (if any).
+     * 外部容器Service组件
      */
     protected Service service = null;
 
 
     /**
-     * Do we allow TRACE ?
+     * 启用或禁用TRACE HTTP方法。如果未指定，则此属性设置为false
      */
     protected boolean allowTrace = false;
 
 
     /**
-     * Default timeout for asynchronous requests (ms).
+     * 异步请求的默认超时（以毫秒为单位）。如果未指定，则将此属性设置为Servlet规范默认值30000（30秒）
      */
     protected long asyncTimeout = 30000;
 
 
     /**
-     * The "enable DNS lookups" flag for this Connector.
+     * 是否使用DNS查找远程主机IP，默认被禁用。
+     * request.getRemoteHost() 用到
      */
     protected boolean enableLookups = false;
 
 
     /*
-     * Is generation of X-Powered-By response header enabled/disabled?
+     * 是否启用了X-Powered-By响应头的生成 ？？？
      */
     protected boolean xpoweredBy = false;
 
 
     /**
-     * The port number on which we listen for requests.
+     * 创建服务器监听连接的TCP端口号
      */
     protected int port = -1;
 
 
     /**
-     * The server name to which we should pretend requests to this Connector
-     * were directed.  This is useful when operating Tomcat behind a proxy
-     * server, so that redirects get constructed accurately.  If not specified,
-     * the server name included in the <code>Host</code> header is used.
+     * 当Tomcat在代理服务器上运行时用到的属性，
+     * 给调用request.getServerName()Web应用程序设置代理服务器名称
      */
     protected String proxyName = null;
 
 
     /**
-     * The server port to which we should pretend requests to this Connector
-     * were directed.  This is useful when operating Tomcat behind a proxy
-     * server, so that redirects get constructed accurately.  If not specified,
-     * the port number specified by the <code>port</code> property is used.
+     * 当Tomcat在代理服务器上运行时用到的属性，
+     * 给调用request.getServerPort()Web应用程序设置代理服务器监听端口
      */
     protected int proxyPort = 0;
 
 
     /**
-     * The redirect port for non-SSL to SSL redirects.
+     * 如果此连接器支持非SSL请求，并且收到匹配SSL传输的请求，则会将请求转发给指定端口
      */
     protected int redirectPort = 443;
 
 
     /**
-     * The request scheme that will be set on all requests received
-     * through this connector.
+     * 设置为您希望给调用request.getScheme()返回的协议的名称
      */
     protected String scheme = "http";
 
 
     /**
-     * The secure connection flag that will be set on all requests received
-     * through this connector.
+     * 设置为您希望给调用request.isSecure()返回表示请求是否使用安全协议（如HTTPS） ？
      */
     protected boolean secure = false;
 
 
     /**
-     * The string manager for this package.
+     * 错误日志管理器
      */
     protected static final StringManager sm = StringManager.getManager(Connector.class);
 
 
     /**
-     * The maximum number of cookies permitted for a request. Use a value less
-     * than zero for no limit. Defaults to 200.
+     * 请求允许的最大Cookie数。值小于零表示没有限制。如果未指定，将使用默认值200。
      */
     private int maxCookieCount = 200;
 
     /**
-     * The maximum number of parameters (GET plus POST) which will be
-     * automatically parsed by the container. 10000 by default. A value of less
-     * than 0 means no limit.
+     * 容器将自动解析的参数和值对的最大数量（GET加POST）。超出此限制的参数和值对将被忽略。值小于0表示没有限制。如果未指定，则使用默认值10000
      */
     protected int maxParameterCount = 10000;
 
     /**
-     * Maximum size of a POST which will be automatically parsed by the
-     * container. 2MB by default.
+     * POST的最大大小（以字节为单位）
      */
     protected int maxPostSize = 2 * 1024 * 1024;
 
 
     /**
-     * Maximum size of a POST which will be saved by the container
-     * during authentication. 4kB by default
+     * 在FORM或CLIENT-CERT身份验证期间，容器将保存/缓冲的POST的最大字节数（以字节为单位）
      */
     protected int maxSavePostSize = 4 * 1024;
 
     /**
-     * Comma-separated list of HTTP methods that will be parsed according
-     * to POST-style rules for application/x-www-form-urlencoded request bodies.
+     * 解析Body的HTTP方法列表(以逗号分隔)，
      */
     protected String parseBodyMethods = "POST";
 
     /**
-     * A Set of methods determined by {@link #parseBodyMethods}.
+     *由{@link #parseBodyMethods}确定解析Body的HTTP方法集合
      */
     protected HashSet<String> parseBodyMethodsSet;
 
 
     /**
-     * Flag to use IP-based virtual hosting.
+     * 属性设置true为使Tomcat使用收到请求的IP地址来确定要将请求发送到的主机。默认值为false
      */
     protected boolean useIPVHosts = false;
 
 
     /**
-     * Coyote Protocol handler class name.
-     * Defaults to the Coyote HTTP/1.1 protocolHandler.
+     * protocolHandler 默认处理类名称
      */
     protected String protocolHandlerClassName =
         "org.apache.coyote.http11.Http11NioProtocol";
 
 
     /**
-     * Coyote protocol handler.
+     * protocolHandler 组件
      */
     protected final ProtocolHandler protocolHandler;
 
 
     /**
-     * Coyote adapter.
+     * adapter组件（用于将Connector和Container适配起来的组件）
      */
     protected Adapter adapter = null;
 
 
     /**
-     * URI encoding.
-     *
-     * @deprecated This will be removed in 9.0.x onwards
+     * 解码URI字节的字符编码。如果未指定，将使用UTF-8
+     * @deprecated 这将在9.0.x之后删除
      */
     @Deprecated
     protected String URIEncoding = null;
 
 
-    /**
-     * @deprecated This will be removed in 9.0.x onwards
-     */
+
     @Deprecated
     protected String URIEncodingLower = null;
+
 
 
     private Charset uriCharset = StandardCharsets.UTF_8;
 
 
     /**
-     * URI encoding as body.
+     * contentType中指定的编码是否应该用于URI查询参数，而不是使用URIEncoding，默认为false
      */
     protected boolean useBodyEncodingForURI = false;
 
 
+    /**
+     *  用于替换设置到protocolHandler的属性名称
+     */
     protected static final HashMap<String,String> replacements = new HashMap<>();
     static {
         replacements.put("acceptCount", "backlog");
@@ -276,10 +265,7 @@ public class Connector extends LifecycleMBeanBase  {
     // ------------------------------------------------------------- Properties
 
     /**
-     * Return a property from the protocol handler.
-     *
-     * @param name the property name
-     * @return the property value
+     * 从protocolHandler返回一个属性值。
      */
     public Object getProperty(String name) {
         String repl = name;
@@ -291,11 +277,7 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * Set a property on the protocol handler.
-     *
-     * @param name the property name
-     * @param value the property value
-     * @return <code>true</code> if the property was successfully set
+     * 设置protocolHandler一个属性的值
      */
     public boolean setProperty(String name, String value) {
         String repl = name;
@@ -307,10 +289,7 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * Return a property from the protocol handler.
-     *
-     * @param name the property name
-     * @return the property value
+     * 从protocolHandler返回一个属性值。
      */
     public Object getAttribute(String name) {
         return getProperty(name);
@@ -318,86 +297,51 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * Set a property on the protocol handler.
-     *
-     * @param name the property name
-     * @param value the property value
+     * 设置protocolHandler一个属性的值
      */
     public void setAttribute(String name, Object value) {
         setProperty(name, String.valueOf(value));
     }
 
 
-    /**
-     * @return the <code>Service</code> with which we are associated (if any).
-     */
+
     public Service getService() {
         return this.service;
     }
 
 
-    /**
-     * Set the <code>Service</code> with which we are associated (if any).
-     *
-     * @param service The service that owns this Engine
-     */
     public void setService(Service service) {
         this.service = service;
     }
 
 
-    /**
-     * @return <code>true</code> if the TRACE method is allowed. Default value
-     *         is <code>false</code>.
-     */
     public boolean getAllowTrace() {
         return this.allowTrace;
     }
 
 
-    /**
-     * Set the allowTrace flag, to disable or enable the TRACE HTTP method.
-     *
-     * @param allowTrace The new allowTrace flag
-     */
     public void setAllowTrace(boolean allowTrace) {
         this.allowTrace = allowTrace;
         setProperty("allowTrace", String.valueOf(allowTrace));
     }
 
 
-    /**
-     * @return the default timeout for async requests in ms.
-     */
     public long getAsyncTimeout() {
         return asyncTimeout;
     }
 
 
-    /**
-     * Set the default timeout for async requests.
-     *
-     * @param asyncTimeout The new timeout in ms.
-     */
     public void setAsyncTimeout(long asyncTimeout) {
         this.asyncTimeout= asyncTimeout;
         setProperty("asyncTimeout", String.valueOf(asyncTimeout));
     }
 
 
-    /**
-     * @return the "enable DNS lookups" flag.
-     */
     public boolean getEnableLookups() {
         return this.enableLookups;
     }
 
 
-    /**
-     * Set the "enable DNS lookups" flag.
-     *
-     * @param enableLookups The new "enable DNS lookups" flag value
-     */
     public void setEnableLookups(boolean enableLookups) {
         this.enableLookups = enableLookups;
         setProperty("enableLookups", String.valueOf(enableLookups));
@@ -414,87 +358,44 @@ public class Connector extends LifecycleMBeanBase  {
     }
 
 
-    /**
-     * @return the maximum number of parameters (GET plus POST) that will be
-     * automatically parsed by the container. A value of less than 0 means no
-     * limit.
-     */
     public int getMaxParameterCount() {
         return maxParameterCount;
     }
 
 
-    /**
-     * Set the maximum number of parameters (GET plus POST) that will be
-     * automatically parsed by the container. A value of less than 0 means no
-     * limit.
-     *
-     * @param maxParameterCount The new setting
-     */
     public void setMaxParameterCount(int maxParameterCount) {
         this.maxParameterCount = maxParameterCount;
         setProperty("maxParameterCount", String.valueOf(maxParameterCount));
     }
 
 
-    /**
-     * @return the maximum size of a POST which will be automatically
-     * parsed by the container.
-     */
     public int getMaxPostSize() {
         return maxPostSize;
     }
 
 
-    /**
-     * Set the maximum size of a POST which will be automatically
-     * parsed by the container.
-     *
-     * @param maxPostSize The new maximum size in bytes of a POST which will
-     * be automatically parsed by the container
-     */
     public void setMaxPostSize(int maxPostSize) {
         this.maxPostSize = maxPostSize;
         setProperty("maxPostSize", String.valueOf(maxPostSize));
     }
 
 
-    /**
-     * @return the maximum size of a POST which will be saved by the container
-     * during authentication.
-     */
     public int getMaxSavePostSize() {
         return maxSavePostSize;
     }
 
 
-    /**
-     * Set the maximum size of a POST which will be saved by the container
-     * during authentication.
-     *
-     * @param maxSavePostSize The new maximum size in bytes of a POST which will
-     * be saved by the container during authentication.
-     */
     public void setMaxSavePostSize(int maxSavePostSize) {
         this.maxSavePostSize = maxSavePostSize;
         setProperty("maxSavePostSize", String.valueOf(maxSavePostSize));
     }
 
 
-    /**
-     * @return the HTTP methods which will support body parameters parsing
-     */
     public String getParseBodyMethods() {
         return this.parseBodyMethods;
     }
 
 
-    /**
-     * Set list of HTTP methods which should allow body parameter
-     * parsing. This defaults to <code>POST</code>.
-     *
-     * @param methods Comma separated list of HTTP method names
-     */
     public void setParseBodyMethods(String methods) {
 
         HashSet<String> methodSet = new HashSet<>();
@@ -518,39 +419,24 @@ public class Connector extends LifecycleMBeanBase  {
     }
 
 
-    /**
-     * @return the port number on which this connector is configured to listen
-     * for requests. The special value of 0 means select a random free port
-     * when the socket is bound.
-     */
     public int getPort() {
         return this.port;
     }
 
 
-    /**
-     * Set the port number on which we listen for requests.
-     *
-     * @param port The new port number
-     */
     public void setPort(int port) {
         this.port = port;
         setProperty("port", String.valueOf(port));
     }
 
 
-    /**
-     * @return the port number on which this connector is listening to requests.
-     * If the special value for {@link #getPort} of zero is used then this method
-     * will report the actual port bound.
-     */
     public int getLocalPort() {
         return ((Integer) getProperty("localPort")).intValue();
     }
 
 
     /**
-     * @return the Coyote protocol handler in use.
+     * 返回Connection 内部处理协议名称
      */
     public String getProtocol() {
         if (("org.apache.coyote.http11.Http11NioProtocol".equals(getProtocolHandlerClassName()) &&
@@ -569,12 +455,8 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * Set the Coyote protocol which will be used by the connector.
-     *
-     * @param protocol The Coyote protocol name
-     *
-     * @deprecated Will be removed in Tomcat 9. Protocol must be configured via
-     *             the constructor
+     * 设置协议的处理类
+     * @param protocol 协议名称
      */
     @Deprecated
     public void setProtocol(String protocol) {
@@ -600,50 +482,28 @@ public class Connector extends LifecycleMBeanBase  {
     }
 
 
-    /**
-     * @return the class name of the Coyote protocol handler in use.
-     */
     public String getProtocolHandlerClassName() {
         return this.protocolHandlerClassName;
     }
 
 
-    /**
-     * Set the class name of the Coyote protocol handler which will be used
-     * by the connector.
-     *
-     * @param protocolHandlerClassName The new class name
-     *
-     * @deprecated Will be removed in Tomcat 9. Protocol must be configured via
-     *             the constructor
-     */
     @Deprecated
     public void setProtocolHandlerClassName(String protocolHandlerClassName) {
         this.protocolHandlerClassName = protocolHandlerClassName;
     }
 
 
-    /**
-     * @return the protocol handler associated with the connector.
-     */
+
     public ProtocolHandler getProtocolHandler() {
         return this.protocolHandler;
     }
 
 
-    /**
-     * @return the proxy server name for this Connector.
-     */
     public String getProxyName() {
         return this.proxyName;
     }
 
 
-    /**
-     * Set the proxy server name for this Connector.
-     *
-     * @param proxyName The new proxy server name
-     */
     public void setProxyName(String proxyName) {
 
         if(proxyName != null && proxyName.length() > 0) {
@@ -655,121 +515,72 @@ public class Connector extends LifecycleMBeanBase  {
     }
 
 
-    /**
-     * @return the proxy server port for this Connector.
-     */
     public int getProxyPort() {
         return this.proxyPort;
     }
 
 
-    /**
-     * Set the proxy server port for this Connector.
-     *
-     * @param proxyPort The new proxy server port
-     */
     public void setProxyPort(int proxyPort) {
         this.proxyPort = proxyPort;
         setProperty("proxyPort", String.valueOf(proxyPort));
     }
 
 
-    /**
-     * @return the port number to which a request should be redirected if
-     * it comes in on a non-SSL port and is subject to a security constraint
-     * with a transport guarantee that requires SSL.
-     */
+
     public int getRedirectPort() {
         return this.redirectPort;
     }
 
 
-    /**
-     * Set the redirect port number.
-     *
-     * @param redirectPort The redirect port number (non-SSL to SSL)
-     */
+
     public void setRedirectPort(int redirectPort) {
         this.redirectPort = redirectPort;
         setProperty("redirectPort", String.valueOf(redirectPort));
     }
 
 
-    /**
-     * @return the scheme that will be assigned to requests received
-     * through this connector.  Default value is "http".
-     */
+
     public String getScheme() {
         return this.scheme;
     }
 
 
-    /**
-     * Set the scheme that will be assigned to requests received through
-     * this connector.
-     *
-     * @param scheme The new scheme
-     */
+
     public void setScheme(String scheme) {
         this.scheme = scheme;
     }
 
 
-    /**
-     * @return the secure connection flag that will be assigned to requests
-     * received through this connector.  Default value is "false".
-     */
+
     public boolean getSecure() {
         return this.secure;
     }
 
 
-    /**
-     * Set the secure connection flag that will be assigned to requests
-     * received through this connector.
-     *
-     * @param secure The new secure connection flag
-     */
+
     public void setSecure(boolean secure) {
         this.secure = secure;
         setProperty("secure", Boolean.toString(secure));
     }
 
 
-    /**
-     * @return the name of character encoding to be used for the URI using the
-     * original case.
-     */
+
     public String getURIEncoding() {
         return uriCharset.name();
     }
 
 
-    /**
-     * @return the character encoding to be used for the URI using lower case.
-     *
-     * @deprecated This will be removed in 9.0.x onwards
-     */
     @Deprecated
     public String getURIEncodingLower() {
         return uriCharset.name().toLowerCase(Locale.ENGLISH);
     }
 
 
-    /**
-     *
-     * @return The Charset to use to convert raw URI bytes (after %nn decoding)
-     *         to characters. This will never be null
-     */
     public Charset getURICharset() {
         return uriCharset;
     }
 
-    /**
-     * Set the URI encoding to be used for the URI.
-     *
-     * @param URIEncoding The new URI character encoding.
-     */
+
     public void setURIEncoding(String URIEncoding) {
         try {
             uriCharset = B2CConverter.getCharset(URIEncoding);
@@ -781,67 +592,33 @@ public class Connector extends LifecycleMBeanBase  {
     }
 
 
-    /**
-     * @return the true if the entity body encoding should be used for the URI.
-     */
     public boolean getUseBodyEncodingForURI() {
         return this.useBodyEncodingForURI;
     }
 
 
-    /**
-     * Set if the entity body encoding should be used for the URI.
-     *
-     * @param useBodyEncodingForURI The new value for the flag.
-     */
     public void setUseBodyEncodingForURI(boolean useBodyEncodingForURI) {
         this.useBodyEncodingForURI = useBodyEncodingForURI;
         setProperty("useBodyEncodingForURI", String.valueOf(useBodyEncodingForURI));
     }
 
-    /**
-     * Indicates whether the generation of an X-Powered-By response header for
-     * Servlet-generated responses is enabled or disabled for this Connector.
-     *
-     * @return <code>true</code> if generation of X-Powered-By response header is enabled,
-     * false otherwise
-     */
     public boolean getXpoweredBy() {
         return xpoweredBy;
     }
 
 
-    /**
-     * Enables or disables the generation of an X-Powered-By header (with value
-     * Servlet/2.5) for all servlet-generated responses returned by this
-     * Connector.
-     *
-     * @param xpoweredBy true if generation of X-Powered-By response header is
-     * to be enabled, false otherwise
-     */
     public void setXpoweredBy(boolean xpoweredBy) {
         this.xpoweredBy = xpoweredBy;
         setProperty("xpoweredBy", String.valueOf(xpoweredBy));
     }
 
 
-    /**
-     * Enable the use of IP-based virtual hosting.
-     *
-     * @param useIPVHosts <code>true</code> if Hosts are identified by IP,
-     *                    <code>false</code> if Hosts are identified by name.
-     */
     public void setUseIPVHosts(boolean useIPVHosts) {
         this.useIPVHosts = useIPVHosts;
         setProperty("useIPVHosts", String.valueOf(useIPVHosts));
     }
 
 
-    /**
-     * Test if IP-based virtual hosting is enabled.
-     *
-     * @return <code>true</code> if IP vhosts are enabled
-     */
     public boolean getUseIPVHosts() {
         return useIPVHosts;
     }
@@ -856,16 +633,25 @@ public class Connector extends LifecycleMBeanBase  {
     }
 
 
+    /**
+     * 给protocolHandler添加一个SSL配置
+     */
     public void addSslHostConfig(SSLHostConfig sslHostConfig) {
         protocolHandler.addSslHostConfig(sslHostConfig);
     }
 
 
+    /**
+     * 查找protocolHandler所有SSL配置
+     */
     public SSLHostConfig[] findSslHostConfigs() {
         return protocolHandler.findSslHostConfigs();
     }
 
 
+    /**
+     * 添加一个协议升级
+     */
     public void addUpgradeProtocol(UpgradeProtocol upgradeProtocol) {
         protocolHandler.addUpgradeProtocol(upgradeProtocol);
     }
@@ -879,10 +665,7 @@ public class Connector extends LifecycleMBeanBase  {
     // --------------------------------------------------------- Public Methods
 
     /**
-     * Create (or allocate) and return a Request object suitable for
-     * specifying the contents of a Request to the responsible Container.
-     *
-     * @return a new Servlet request object
+     * 创建一个Tomcat Request对象
      */
     public Request createRequest() {
 
@@ -894,10 +677,7 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * Create (or allocate) and return a Response object suitable for
-     * receiving the contents of a Response from the responsible Container.
-     *
-     * @return a new Servlet response object
+     * 创建一个Tomcat Response对象
      */
     public Response createResponse() {
 
@@ -908,6 +688,9 @@ public class Connector extends LifecycleMBeanBase  {
     }
 
 
+    /**
+     * 创建当前主机JMX Bean ObjectName中属性列表
+     */
     protected String createObjectNameKeyProperties(String type) {
 
         Object addressObj = getProperty("address");
@@ -960,16 +743,19 @@ public class Connector extends LifecycleMBeanBase  {
     }
 
 
+    /**
+     * 组件初始化模板方法实现
+     */
     @Override
     protected void initInternal() throws LifecycleException {
 
         super.initInternal();
 
-        // Initialize adapter
+        /** 实例化adapter设置给protocolHandler组件 **/
         adapter = new CoyoteAdapter(this);
         protocolHandler.setAdapter(adapter);
 
-        // Make sure parseBodyMethodsSet has a default
+        /** 解析设置parseBodyMethods到parseBodyMethodsSet集合  **/
         if (null == parseBodyMethodsSet) {
             setParseBodyMethods(getParseBodyMethods());
         }
@@ -989,6 +775,7 @@ public class Connector extends LifecycleMBeanBase  {
             }
         }
 
+        /** 初始化protocolHandler **/
         try {
             protocolHandler.init();
         } catch (Exception e) {
@@ -999,9 +786,7 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * Begin processing requests via this Connector.
-     *
-     * @exception LifecycleException if a fatal startup error occurs
+     * 组件启动模板方法实现
      */
     @Override
     protected void startInternal() throws LifecycleException {
@@ -1012,8 +797,10 @@ public class Connector extends LifecycleMBeanBase  {
                     "coyoteConnector.invalidPort", Integer.valueOf(getPort())));
         }
 
+        /** 设置当前组件状态为STARTING **/
         setState(LifecycleState.STARTING);
 
+        /** 启动protocolHandler **/
         try {
             protocolHandler.start();
         } catch (Exception e) {
@@ -1024,15 +811,14 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * Terminate processing requests via this Connector.
-     *
-     * @exception LifecycleException if a fatal shutdown error occurs
+     * 组件停止模板方法实现
      */
     @Override
     protected void stopInternal() throws LifecycleException {
-
+        /** 设置当前组件状态为STOPPING **/
         setState(LifecycleState.STOPPING);
 
+        /** 停止protocolHandler **/
         try {
             protocolHandler.stop();
         } catch (Exception e) {
@@ -1041,9 +827,12 @@ public class Connector extends LifecycleMBeanBase  {
         }
     }
 
-
+    /**
+     * 组件销毁模板方法实现
+     */
     @Override
     protected void destroyInternal() throws LifecycleException {
+        /** 销毁protocolHandler **/
         try {
             protocolHandler.destroy();
         } catch (Exception e) {
@@ -1051,6 +840,7 @@ public class Connector extends LifecycleMBeanBase  {
                     sm.getString("coyoteConnector.protocolHandlerDestroyFailed"), e);
         }
 
+        /** 从Service中删除当前Connector组件 **/
         if (getService() != null) {
             getService().removeConnector(this);
         }
@@ -1059,10 +849,7 @@ public class Connector extends LifecycleMBeanBase  {
     }
 
 
-    /**
-     * Provide a useful toString() implementation as it may be used when logging
-     * Lifecycle errors to identify the component.
-     */
+
     @Override
     public String toString() {
         // Not worth caching this right now
@@ -1082,7 +869,21 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     // -------------------- JMX registration  --------------------
-
+    /**
+     * ObjectName 表示注册到JMX中Bean所对应的对象名称
+     *
+     * StringBuilder name = new StringBuilder(getDomain());
+     * name.append(':');
+     * name.append(objectNameKeyProperties);
+     * ObjectName on = new ObjectName(name.toString());
+     *
+     * ObjectName名称组成由
+     * 域名空间：对象属性组成
+     * getDomain():getObjectNameKeyProperties()
+     *
+     * 当前方法是getDomain()方法扩展子类实现，该方法父类LifecycleMBeanBase模板方法实现，返回域名空间
+     * 获取子组件Service 组件域名空间作为自己域名空间
+     */
     @Override
     protected String getDomainInternal() {
         Service s = getService();
@@ -1093,6 +894,19 @@ public class Connector extends LifecycleMBeanBase  {
         }
     }
 
+    /**
+     * ObjectName 表示注册到JMX中Bean所对应的对象名称
+     *
+     * StringBuilder name = new StringBuilder(getDomain());
+     * name.append(':');
+     * name.append(objectNameKeyProperties);
+     * ObjectName on = new ObjectName(name.toString());
+     *
+     * ObjectName名称组成由
+     * 域名空间：对象属性集合
+     * getDomain():getObjectNameKeyProperties()
+     * 该方法父类LifecycleMBeanBase模板方法实现，返回对象属性集合
+     */
     @Override
     protected String getObjectNameKeyProperties() {
         return createObjectNameKeyProperties("Connector");

@@ -53,8 +53,8 @@ public class SocketProperties {
     protected int eventCache = 500;
 
     /**
-     * Enable/disable direct buffers for the network buffers
-     * Default value is disabled
+     * 是否使用directBuffer
+     * 默认值已禁用
      */
     protected boolean directBuffer = false;
 
@@ -77,14 +77,13 @@ public class SocketProperties {
     protected Integer txBufSize = null;
 
     /**
-     * The application read buffer size in bytes.
-     * Default value is rxBufSize
+     * 应用程序读取缓冲区大小（字节）
      */
     protected int appReadBufSize = 8192;
 
     /**
-     * The application write buffer size in bytes
-     * Default value is txBufSize
+     * 应用程序写入缓冲区大小（字节）
+     * 默认值为txbufsize
      */
     protected int appWriteBufSize = 8192;
 

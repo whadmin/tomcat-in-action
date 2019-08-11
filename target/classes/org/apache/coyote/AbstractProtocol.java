@@ -50,40 +50,39 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
         MBeanRegistration {
 
     /**
-     * The string manager for this package.
+     * 错误日志管理器
      */
     private static final StringManager sm = StringManager.getManager(AbstractProtocol.class);
 
 
     /**
-     * Counter used to generate unique JMX names for connectors using automatic
-     * port binding.
+     *
      */
     private static final AtomicInteger nameCounter = new AtomicInteger(0);
 
 
     /**
-     * Name of MBean for the Global Request Processor.
+     * 当前组件注册到JMX Server ObjectName 对象名称
      */
     protected ObjectName rgOname = null;
 
 
     /**
-     * Unique ID for this connector. Only used if the connector is configured
-     * to use a random port as the port will change if stop(), start() is
-     * called.
+     * ProtocolHandler唯一ID。,
+     * 仅在连接器配置使用随机端口时使用，因为如果调用stop（），start（），端口将更改。
      */
     private int nameIndex = 0;
 
 
     /**
-     * Endpoint that provides low-level network I/O - must be matched to the
-     * ProtocolHandler implementation (ProtocolHandler using NIO, requires NIO
-     * Endpoint etc.).
+     * endpoint 组件
      */
     private final AbstractEndpoint<S> endpoint;
 
 
+    /**
+     * 处理器
+     */
     private Handler<S> handler;
 
 
@@ -92,7 +91,7 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
 
 
     /**
-     * The async timeout thread.
+     * 异步超时线程。
      */
     private AsyncTimeout asyncTimeout = null;
 
@@ -361,13 +360,6 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
     }
 
 
-    /**
-     * The name will be prefix-address-port if address is non-null and
-     * prefix-port if the address is null.
-     *
-     * @return A name for this protocol instance that is appropriately quoted
-     *         for use in an ObjectName.
-     */
     public String getName() {
         return ObjectName.quote(getNameInternal());
     }
@@ -556,10 +548,12 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
 
     @Override
     public void init() throws Exception {
+        /** 打印日志 **/
         if (getLog().isInfoEnabled()) {
             getLog().info(sm.getString("abstractProtocolHandler.init", getName()));
         }
 
+        /** 将当前组件注册到JMX **/
         if (oname == null) {
             // Component not pre-registered so register it
             oname = createObjectName();
@@ -568,16 +562,19 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
             }
         }
 
+        /** 将GlobalRequestProcessor注册到JMX **/
         if (this.domain != null) {
             rgOname = new ObjectName(domain + ":type=GlobalRequestProcessor,name=" + getName());
             Registry.getRegistry(null, null).registerComponent(
                     getHandler().getGlobal(), rgOname, null);
         }
 
+        /** 设置endpoint组件的名称和命名空间  **/
         String endpointName = getName();
         endpoint.setName(endpointName.substring(1, endpointName.length()-1));
         endpoint.setDomain(domain);
 
+        /** 初始化 endpoint **/
         endpoint.init();
     }
 
@@ -1129,9 +1126,6 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
     }
 
 
-    /**
-     * Async timeout thread
-     */
     protected class AsyncTimeout implements Runnable {
 
         private volatile boolean asyncTimeoutRunning = true;

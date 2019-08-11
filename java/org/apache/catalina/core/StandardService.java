@@ -126,14 +126,17 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
     @Override
     public void setContainer(Engine engine) {
+        /** 获取原始Engine组件引用 **/
         Engine oldEngine = this.engine;
         if (oldEngine != null) {
             oldEngine.setService(null);
         }
+        /** 设置engine **/
         this.engine = engine;
         if (this.engine != null) {
             this.engine.setService(this);
         }
+        /** 如果StandardService组件运行，则启动添加engine组件,并重启MapperListener**/
         if (getState().isAvailable()) {
             if (this.engine != null) {
                 try {
@@ -162,7 +165,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
             }
         }
 
-        // Report this property change to interested listeners
+        /** 将Engine属性更改通知给监听器  **/
         support.firePropertyChange("container", oldEngine, this.engine);
     }
 
@@ -194,16 +197,16 @@ public class StandardService extends LifecycleMBeanBase implements Service {
     public void addConnector(Connector connector) {
 
         synchronized (connectorsLock) {
-           /** connector 反向关联外部 Service 组件 **/
+            /** connector 反向关联父组件 Service **/
             connector.setService(this);
 
-            /** 将Connector组件添加到Service 组件的数组中 **/
+            /** 将Connector组件添加到Service 组件的connectors数组类型属性connectors中 **/
             Connector results[] = new Connector[connectors.length + 1];
             System.arraycopy(connectors, 0, results, 0, connectors.length);
             results[connectors.length] = connector;
             connectors = results;
 
-            /** 如果当前Service组件已经启动，则启动添加Connector 组件 **/
+            /** 如果当前Service组件正在运行，则启动添加Connector 组件 **/
             if (getState().isAvailable()) {
                 try {
                     connector.start();

@@ -54,7 +54,15 @@ import org.apache.tomcat.util.res.StringManager;
  */
 public class Connector extends LifecycleMBeanBase  {
 
+    /**
+     * 日志
+     */
     private static final Log log = LogFactory.getLog(Connector.class);
+
+    /**
+     * 错误日志管理器
+     */
+    protected static final StringManager sm = StringManager.getManager(Connector.class);
 
 
     /**
@@ -66,17 +74,74 @@ public class Connector extends LifecycleMBeanBase  {
 
     // ------------------------------------------------------------ Constructor
 
+    /**
+     * protocolHandler 默认处理类名称
+     */
+    protected String protocolHandlerClassName =
+            "org.apache.coyote.http11.Http11NioProtocol";
+
+
+    /**
+     * uri编码字符串
+     */
+    @Deprecated
+    protected String URIEncoding = null;
+
+    /**
+     * uri编码类型
+     */
+    private Charset uriCharset = StandardCharsets.UTF_8;
+
+    /**
+     * 获取uri编码名称
+     */
+    public String getURIEncoding() {
+        return uriCharset.name();
+    }
+
+    /**
+     * 获取uri编码名称英文小写
+     */
+    @Deprecated
+    public String getURIEncodingLower() {
+        return uriCharset.name().toLowerCase(Locale.ENGLISH);
+    }
+
+    /**
+     * 获取uri编码
+     */
+    public Charset getURICharset() {
+        return uriCharset;
+    }
+
+    /**
+     * 设置URI编码
+     */
+    public void setURIEncoding(String URIEncoding) {
+        try {
+            uriCharset = B2CConverter.getCharset(URIEncoding);
+        } catch (UnsupportedEncodingException e) {
+            log.warn(sm.getString("coyoteConnector.invalidEncoding",
+                    URIEncoding, uriCharset.name()), e);
+        }
+        setProperty("uRIEncoding", URIEncoding);
+    }
+
+
+    /**
+     * 实例化Connector
+     */
     public Connector() {
         this(null);
     }
 
     /**
      * 实例化Connector
-     * @param protocol
+     * @param protocol Connector处理协议类型
      */
     public Connector(String protocol) {
         setProtocol(protocol);
-        /**  使用反射实例化ProtocolHandler **/
+        /**  使用反射实例化ProtocolHandler实现类 **/
         ProtocolHandler p = null;
         try {
             Class<?> clazz = Class.forName(protocolHandlerClassName);
@@ -87,7 +152,7 @@ public class Connector extends LifecycleMBeanBase  {
         } finally {
             this.protocolHandler = p;
         }
-
+        /** 设置uri编码类型 **/
         if (Globals.STRICT_SERVLET_COMPLIANCE) {
             uriCharset = StandardCharsets.ISO_8859_1;
         } else {
@@ -102,7 +167,7 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * 启用或禁用TRACE HTTP方法。如果未指定，则此属性设置为false
+     * 是否允许使用Trace方法
      */
     protected boolean allowTrace = false;
 
@@ -120,8 +185,8 @@ public class Connector extends LifecycleMBeanBase  {
     protected boolean enableLookups = false;
 
 
-    /*
-     * 是否启用了X-Powered-By响应头的生成 ？？？
+    /**
+     * 是否启用了X-Powered-By响应头
      */
     protected boolean xpoweredBy = false;
 
@@ -164,10 +229,7 @@ public class Connector extends LifecycleMBeanBase  {
     protected boolean secure = false;
 
 
-    /**
-     * 错误日志管理器
-     */
-    protected static final StringManager sm = StringManager.getManager(Connector.class);
+
 
 
     /**
@@ -208,11 +270,7 @@ public class Connector extends LifecycleMBeanBase  {
     protected boolean useIPVHosts = false;
 
 
-    /**
-     * protocolHandler 默认处理类名称
-     */
-    protected String protocolHandlerClassName =
-        "org.apache.coyote.http11.Http11NioProtocol";
+
 
 
     /**
@@ -227,12 +285,7 @@ public class Connector extends LifecycleMBeanBase  {
     protected Adapter adapter = null;
 
 
-    /**
-     * 解码URI字节的字符编码。如果未指定，将使用UTF-8
-     * @deprecated 这将在9.0.x之后删除
-     */
-    @Deprecated
-    protected String URIEncoding = null;
+
 
 
 
@@ -241,7 +294,7 @@ public class Connector extends LifecycleMBeanBase  {
 
 
 
-    private Charset uriCharset = StandardCharsets.UTF_8;
+
 
 
     /**
@@ -565,31 +618,10 @@ public class Connector extends LifecycleMBeanBase  {
 
 
 
-    public String getURIEncoding() {
-        return uriCharset.name();
-    }
 
 
-    @Deprecated
-    public String getURIEncodingLower() {
-        return uriCharset.name().toLowerCase(Locale.ENGLISH);
-    }
 
 
-    public Charset getURICharset() {
-        return uriCharset;
-    }
-
-
-    public void setURIEncoding(String URIEncoding) {
-        try {
-            uriCharset = B2CConverter.getCharset(URIEncoding);
-        } catch (UnsupportedEncodingException e) {
-            log.warn(sm.getString("coyoteConnector.invalidEncoding",
-                    URIEncoding, uriCharset.name()), e);
-        }
-        setProperty("uRIEncoding", URIEncoding);
-    }
 
 
     public boolean getUseBodyEncodingForURI() {

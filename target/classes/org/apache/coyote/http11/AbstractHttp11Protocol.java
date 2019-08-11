@@ -59,12 +59,16 @@ public abstract class AbstractHttp11Protocol<S> extends AbstractProtocol<S> {
     }
 
 
+    /**
+     * 初始化
+     */
     @Override
     public void init() throws Exception {
+        /** 配置升级协议 **/
         for (UpgradeProtocol upgradeProtocol : upgradeProtocols) {
             configureUpgradeProtocol(upgradeProtocol);
         }
-
+        /** 调用父类初始化 **/
         super.init();
     }
 

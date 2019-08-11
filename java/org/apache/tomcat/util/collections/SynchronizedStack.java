@@ -16,25 +16,24 @@
  */
 package org.apache.tomcat.util.collections;
 
-/**
- * This is intended as a (mostly) GC-free alternative to
- * {@link java.util.concurrent.ConcurrentLinkedQueue} when the requirement is to
- * create a pool of re-usable objects with no requirement to shrink the pool.
- * The aim is to provide the bare minimum of required functionality as quickly
- * as possible with minimum garbage.
- *
- * @param <T> The type of object managed by this stack
- */
+
 public class SynchronizedStack<T> {
 
     public static final int DEFAULT_SIZE = 128;
     private static final int DEFAULT_LIMIT = -1;
 
+    /**
+     * 数据大小
+     */
     private int size;
+
+    /**
+     * 栈容量
+     */
     private final int limit;
 
-    /*
-     * Points to the next available object in the stack
+    /**
+     * 栈顶指针
      */
     private int index = -1;
 
@@ -56,6 +55,9 @@ public class SynchronizedStack<T> {
     }
 
 
+    /**
+     * 向栈顶压入元素
+     */
     public synchronized boolean push(T obj) {
         index++;
         if (index == size) {
@@ -70,6 +72,9 @@ public class SynchronizedStack<T> {
         return true;
     }
 
+    /**
+     * 获取栈顶元素
+     */
     @SuppressWarnings("unchecked")
     public synchronized T pop() {
         if (index == -1) {
@@ -80,6 +85,9 @@ public class SynchronizedStack<T> {
         return result;
     }
 
+    /**
+     * 清理栈中数据
+     */
     public synchronized void clear() {
         if (index > -1) {
             for (int i = 0; i < index + 1; i++) {
@@ -89,6 +97,9 @@ public class SynchronizedStack<T> {
         index = -1;
     }
 
+    /**
+     * 栈扩容
+     */
     private void expand() {
         int newSize = size * 2;
         if (limit != -1 && newSize > limit) {

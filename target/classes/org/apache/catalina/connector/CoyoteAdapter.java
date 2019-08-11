@@ -112,13 +112,13 @@ public class CoyoteAdapter implements Adapter {
 
 
     /**
-     * The CoyoteConnector with which this processor is associated.
+     * 连接器组件
      */
     private final Connector connector;
 
 
     /**
-     * The string manager for this package.
+     * 管理打印日志模板组件
      */
     protected static final StringManager sm = StringManager.getManager(CoyoteAdapter.class);
 

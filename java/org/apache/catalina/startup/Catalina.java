@@ -83,7 +83,7 @@ public class Catalina {
     protected boolean await = false;
 
     /**
-     * tomcat 配置文件，用来实例化Tomcat Server组件
+     * tomcat配置文件，用来实例化Tomcat Server组件
      */
     protected String configFile = "conf/server.xml";
 
@@ -110,7 +110,7 @@ public class Catalina {
 
 
     /**
-     * 向JVM注册的关闭钩子线程
+     * 处理关闭tomcat的线程
      */
     protected Thread shutdownHook = null;
 
@@ -133,7 +133,7 @@ public class Catalina {
      * 实例化Catalina
      */
     public Catalina() {
-        /** 从catalina.properties获取受保护类，注册到Security中  **/
+        /** 从catalina.properties读取受保护类，注册到Security中  **/
         setSecurityProtection();
         ExceptionUtils.preload();
     }
@@ -280,81 +280,102 @@ public class Catalina {
         digester.setFakeAttributes(fakeAttributes);
         digester.setUseContextClassLoader(true);
 
-        /**
-         * 添加内置解析规则
-         * 规则如下
-         * 碰到<server>标签将默认会实例化一个org.apache.catalina.core.StandardServer
-         * (这里className表示如果<server>标签如果存在className属性将实例化属性值对应的对象)入栈到digester对象处理栈顶
-         * 碰到</server>将创建对象从digester对象处理栈中出栈
-         */
+        //解析<Server>标签
+        /** 解析<server>标签实例化StandardServer对象，并push到操作栈中 **/
         digester.addObjectCreate("Server",
-                                 "org.apache.catalina.core.StandardServer",
-                                 "className");
-        /** 添加内置解析规则
-         *  规则如下
-         *  碰到<server>标签时会将标签中属性值映射到标签实例对象的属性中
-         */
+                "org.apache.catalina.core.StandardServer",
+                "className");
+
+        /** 解析<server>标签将标签中属性值映射到StandardServer对象中**/
         digester.addSetProperties("Server");
 
-
-        /** 添加内置解析规则
-         *  规则如下
-         *  碰到</server>标签时,会找到栈顶对象之后的对象调用指定方法（setServer），并将栈顶对象作为参数（指定参数类型org.apache.catalina.Server）
-         *
-         *  addSetNext 本质是将子标签中解析完的对象设置到父对象属性中。
-         */
+        /** 解析</server>标签将操作栈栈顶对象作为次栈顶对象Catalina.setServer方法调用的参数，设置到Catalina属性中**/
         digester.addSetNext("Server",
-                            "setServer",
-                            "org.apache.catalina.Server");
+                "setServer",
+                "org.apache.catalina.Server");
 
+
+        //解析<Server>GlobalNamingResources>标签
+        /** 解析<GlobalNamingResources>标签实例化NamingResourcesImpl对象，并push到操作栈中 **/
         digester.addObjectCreate("Server/GlobalNamingResources",
-                                 "org.apache.catalina.deploy.NamingResourcesImpl");
-        digester.addSetProperties("Server/GlobalNamingResources");
-        digester.addSetNext("Server/GlobalNamingResources",
-                            "setGlobalNamingResources",
-                            "org.apache.catalina.deploy.NamingResourcesImpl");
+                "org.apache.catalina.deploy.NamingResourcesImpl");
 
+        /** 解析<GlobalNamingResources>标签将标签中属性值映射到NamingResourcesImpl对象中**/
+        digester.addSetProperties("Server/GlobalNamingResources");
+
+        /** 解析</GlobalNamingResources>标签将操作栈栈顶对象作为次栈顶对象StandardServer.setGlobalNamingResources方法调用的参数，设置到StandardServer属性中**/
+        digester.addSetNext("Server/GlobalNamingResources",
+                "setGlobalNamingResources",
+                "org.apache.catalina.deploy.NamingResourcesImpl");
+
+        //解析<Server><Listener>标签
+        /** 解析<Listener>标签实例化标签中className属性定义的对象，并push到操作栈中 **/
         digester.addObjectCreate("Server/Listener",
                                  null, // MUST be specified in the element
                                  "className");
+        /** 解析<Listener>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties("Server/Listener");
+
+        /** 解析</Listener>标签将操作栈栈顶对象作为次栈顶对象StandardServer.addLifecycleListener方法调用的参数，设置到StandardServer属性中**/
         digester.addSetNext("Server/Listener",
                             "addLifecycleListener",
                             "org.apache.catalina.LifecycleListener");
 
+        //解析<Server><Service>标签
+        /** 解析<Service>标签实例化StandardService对象，并push到操作栈中 **/
         digester.addObjectCreate("Server/Service",
                                  "org.apache.catalina.core.StandardService",
                                  "className");
+        /** 解析<Service>标签将标签中属性值映射到StandardService对象中**/
         digester.addSetProperties("Server/Service");
+        /** 解析</Service>标签将操作栈栈顶对象作为次栈顶对象StandardServer.addService方法调用的参数，设置到StandardServer属性中**/
         digester.addSetNext("Server/Service",
                             "addService",
                             "org.apache.catalina.Service");
 
+        //解析<Server><Service><Listener>标签
+        /** 解析<Listener>标签实例化标签中className属性定义的对象，并push到操作栈中 **/
         digester.addObjectCreate("Server/Service/Listener",
                                  null, // MUST be specified in the element
                                  "className");
+        /** 解析<Listener>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties("Server/Service/Listener");
+
+
+        /** 解析</Listener>标签将操作栈栈顶对象作为次栈顶对象StandardService.addLifecycleListener方法调用的参数，设置到StandardServer属性中**/
         digester.addSetNext("Server/Service/Listener",
                             "addLifecycleListener",
                             "org.apache.catalina.LifecycleListener");
 
+        //解析<Server><Service><Executor>标签
+        /** 解析<Executor>标签实例化StandardThreadExecutor对象，并push到操作栈中 **/
         digester.addObjectCreate("Server/Service/Executor",
                          "org.apache.catalina.core.StandardThreadExecutor",
                          "className");
+        /** 解析<Executor>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties("Server/Service/Executor");
 
+        /** 解析</Executor>标签将操作栈栈顶对象作为次栈顶对象StandardService.addExecutor方法调用的参数，设置到StandardServer属性中**/
         digester.addSetNext("Server/Service/Executor",
                             "addExecutor",
                             "org.apache.catalina.Executor");
 
-        /** 为指定xml规则添加自定义规则 **/
+        //解析<Server><Service><Connector>标签
+        /** 解析<Connector>标签使用自定义规则ConnectorCreateRule**/
         digester.addRule("Server/Service/Connector",
                          new ConnectorCreateRule());
+        /** 解析<Connector>标签属性使用自定义规则SetAllPropertiesRule**/
         digester.addRule("Server/Service/Connector",
                          new SetAllPropertiesRule(new String[]{"executor", "sslImplementationName"}));
+
+        /** 解析</Connector>标签将操作栈栈顶对象作为次栈顶对象StandardService.addConnector方法调用的参数，设置到StandardServer属性中**/
         digester.addSetNext("Server/Service/Connector",
                             "addConnector",
                             "org.apache.catalina.connector.Connector");
+
+
+
+
 
         digester.addObjectCreate("Server/Service/Connector/SSLHostConfig",
                                  "org.apache.tomcat.util.net.SSLHostConfig");
@@ -404,6 +425,8 @@ public class Catalina {
         /** 为指定xml标签添加一组规则 **/
         digester.addRuleSet(new NamingRuleSet("Server/GlobalNamingResources/"));
         digester.addRuleSet(new EngineRuleSet("Server/Service/"));
+
+        //解析<Server><Service><Connector>标签
         digester.addRuleSet(new HostRuleSet("Server/Service/Engine/"));
         digester.addRuleSet(new ContextRuleSet("Server/Service/Engine/Host/"));
         addClusterRuleSet(digester, "Server/Service/Engine/Host/Cluster/");
@@ -486,7 +509,6 @@ public class Catalina {
         Server s = getServer();
         /** 如果omcat Server组件实例不存在，使用Digester构造一个tomcat Server组件 **/
         if (s == null) {
-            // Create and execute our Digester
             Digester digester = createStopDigester();
             File file = configFile();
             try (FileInputStream fis = new FileInputStream(file)) {
@@ -673,7 +695,7 @@ public class Catalina {
 
 
     /**
-     * 加载tomcat容器
+     * 加载Catalina
      */
     public void load(String args[]) {
 
@@ -688,17 +710,17 @@ public class Catalina {
 
 
     /**
-     * 启动Tomcat容器
+     * 启动Catalina
      */
     public void start() {
 
-        /** 判断Tomcat Server组件是否已经实例化 **/
+        /** 判断是否以设置server组件 **/
         if (getServer() == null) {
-            /** 调用load方法实例化Tomcat Server组件 **/
+            /** 重新加载Catalina **/
             load();
         }
 
-        /** 初始化失败返回 **/
+        /** 加载Catalina失败 **/
         if (getServer() == null) {
             log.fatal("Cannot start server. Server instance is not configured.");
             return;
@@ -707,14 +729,15 @@ public class Catalina {
         /** 获取Tomcat启动时间 **/
         long t1 = System.nanoTime();
 
-        /** 启动Tomcat Server组件 **/
+        /** 启动Server组件 **/
         try {
             getServer().start();
         }
-        /** 发生异常 销毁Tomcat Server组件 **/
+        /** 发生LifecycleException异常 销毁Server组件 **/
         catch (LifecycleException e) {
             log.fatal(sm.getString("catalina.serverStartFail"), e);
             try {
+                /** 销毁Server组件 **/
                 getServer().destroy();
             } catch (LifecycleException e1) {
                 log.debug("destroy() failed for failed Server ", e1);
@@ -737,25 +760,33 @@ public class Catalina {
             /**将shutdownHook注册JMV**/
             Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-            /** 向logManager设置已经向JVM注册钩子线程标识 **/
+            /**设置LogManager中注册到JVM钩子线程在JVM停止时不会执行 **/
             LogManager logManager = LogManager.getLogManager();
             if (logManager instanceof ClassLoaderLogManager) {
                 ((ClassLoaderLogManager) logManager).setUseShutdownHook(
                         false);
             }
         }
-        /** Bootstrap.init()之后await设置true， **/
+        /** 执行Bootstarp.main函数的指令为start时会设置  Catalina的await属性为true，**/
         if (await) {
-            /** 启动一个Socket等待接受shutdown命令，用来停止Tomcat **/
+            /**
+             * 阻塞tomcat主线程，当主线程从阻塞中唤醒并从await()方法返回表示tomcat被停止
+             *
+             * 如下两种情况会导致tomcat停止
+             *
+             * 1 内部调用server组件stopAwait()方法
+             *
+             * 2 接收到客户端发起SHUTDOWN命令socket请求
+             **/
             await();
-            /** 停止tomcat容器 **/
+            /** 停止Catalina **/
             stop();
         }
     }
 
 
     /**
-     * 停止tomcat容器
+     * 停止Catalina
      */
     public void stop() {
 
@@ -765,8 +796,7 @@ public class Catalina {
                 /**  向JVM清理掉注册的钩子线程 **/
                 Runtime.getRuntime().removeShutdownHook(shutdownHook);
 
-                // 如果正在使用JULI，请重新启用JULI的关闭以确保  ??
-                // 日志消息不会丢失
+                /**设置LogManager中注册到JVM钩子线程在JVM停止时会执行，重置日志系统 **/
                 LogManager logManager = LogManager.getLogManager();
                 if (logManager instanceof ClassLoaderLogManager) {
                     ((ClassLoaderLogManager) logManager).setUseShutdownHook(
@@ -797,7 +827,7 @@ public class Catalina {
 
 
     /**
-     * init()之后await为true，启动一个Socket等待接受shutdown命令，用来停止Tomcat
+     * 启动一个Socket等待接受shutdown命令，用来停止Tomcat
      */
     public void await() {
 
@@ -891,7 +921,7 @@ public class Catalina {
     // --------------------------------------- CatalinaShutdownHook Inner Class
 
     /**
-     * tomcat关闭挂钩，如果需要，将执行Catalina 的清洁关闭。
+     * tomcat关闭注册到JVM中钩子线程
      */
     protected class CatalinaShutdownHook extends Thread {
 

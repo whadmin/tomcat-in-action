@@ -50,15 +50,29 @@ public class NioSelectorPool {
 
     protected volatile Selector SHARED_SELECTOR;
 
+    /** 池中最多能使用的Selector数量*/
     protected int maxSelectors = 200;
+
     protected long sharedSelectorTimeout = 30000;
+
     protected int maxSpareSelectors = -1;
+
+    /** NioSelectorPool组件是否已经打开 **/
     protected boolean enabled = true;
+
+    /** 池中正在运行Selector **/
     protected AtomicInteger active = new AtomicInteger(0);
+
+    /** 池中未使用Selector **/
     protected AtomicInteger spare = new AtomicInteger(0);
+
+    /** 保存selectors对象队列 **/
     protected ConcurrentLinkedQueue<Selector> selectors =
             new ConcurrentLinkedQueue<>();
 
+    /**
+     * 获取共享的Selector
+     */
     protected Selector getSharedSelector() throws IOException {
         if (SHARED && SHARED_SELECTOR == null) {
             synchronized ( NioSelectorPool.class ) {
@@ -71,10 +85,18 @@ public class NioSelectorPool {
         return  SHARED_SELECTOR;
     }
 
+    /**
+     * 获取 Selector
+     * @return
+     * @throws IOException
+     */
     public Selector get() throws IOException{
+        /** 如果开启SHARED，则获取一个共享单例的Selector **/
         if ( SHARED ) {
             return getSharedSelector();
         }
+
+        /** 如果正在使用Selector超过了maxSelectors直接返回 **/
         if ( (!enabled) || active.incrementAndGet() >= maxSelectors ) {
             if ( enabled ) active.decrementAndGet();
             return null;

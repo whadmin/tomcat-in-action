@@ -34,117 +34,76 @@ public class StandardThreadExecutor extends LifecycleMBeanBase
 
     // ---------------------------------------------- Properties
     /**
-     * Default thread priority
+     * 默认线程的优先级
      */
     protected int threadPriority = Thread.NORM_PRIORITY;
 
     /**
-     * Run threads in daemon or non-daemon state
+     * 守护线程
      */
     protected boolean daemon = true;
 
     /**
-     * Default name prefix for the thread name
+     * 线程名称的前缀
      */
     protected String namePrefix = "tomcat-exec-";
 
     /**
-     * max number of threads
+     * 最大线程数默认200个
      */
     protected int maxThreads = 200;
 
     /**
-     * min number of threads
+     * 最小空闲线程25个
      */
     protected int minSpareThreads = 25;
 
     /**
-     * idle time in milliseconds
+     * 超时时间为6000
      */
     protected int maxIdleTime = 60000;
 
     /**
-     * The executor we use for this component
+     * 线程池容器
      */
     protected ThreadPoolExecutor executor = null;
 
     /**
-     * the name of this thread pool
+     * 线程池的名称
      */
     protected String name;
 
     /**
-     * prestart threads?
+     * 是否提前启动线程
      */
     protected boolean prestartminSpareThreads = false;
 
     /**
-     * The maximum number of elements that can queue up before we reject them
+     * 队列最大大小
      */
     protected int maxQueueSize = Integer.MAX_VALUE;
 
     /**
-     * After a context is stopped, threads in the pool are renewed. To avoid
-     * renewing all threads at the same time, this delay is observed between 2
-     * threads being renewed.
+     *为了避免在上下文停止之后，所有的线程在同一时间段被更新，所以进行线程的延迟操作
      */
     protected long threadRenewalDelay =
         org.apache.tomcat.util.threads.Constants.DEFAULT_THREAD_RENEWAL_DELAY;
 
+    /**
+     * 任务队列
+     */
     private TaskQueue taskqueue = null;
-    // ---------------------------------------------- Constructors
+
+
     public StandardThreadExecutor() {
-        //empty constructor for the digester
     }
 
 
-    // ---------------------------------------------- Public Methods
 
     @Override
     protected void initInternal() throws LifecycleException {
         super.initInternal();
     }
-
-
-    /**
-     * Start the component and implement the requirements
-     * of {@link org.apache.catalina.util.LifecycleBase#startInternal()}.
-     *
-     * @exception LifecycleException if this component detects a fatal error
-     *  that prevents this component from being used
-     */
-    @Override
-    protected void startInternal() throws LifecycleException {
-
-        taskqueue = new TaskQueue(maxQueueSize);
-        TaskThreadFactory tf = new TaskThreadFactory(namePrefix,daemon,getThreadPriority());
-        executor = new ThreadPoolExecutor(getMinSpareThreads(), getMaxThreads(), maxIdleTime, TimeUnit.MILLISECONDS,taskqueue, tf);
-        executor.setThreadRenewalDelay(threadRenewalDelay);
-        if (prestartminSpareThreads) {
-            executor.prestartAllCoreThreads();
-        }
-        taskqueue.setParent(executor);
-
-        setState(LifecycleState.STARTING);
-    }
-
-
-    /**
-     * Stop the component and implement the requirements
-     * of {@link org.apache.catalina.util.LifecycleBase#stopInternal()}.
-     *
-     * @exception LifecycleException if this component detects a fatal error
-     *  that needs to be reported
-     */
-    @Override
-    protected void stopInternal() throws LifecycleException {
-
-        setState(LifecycleState.STOPPING);
-        if ( executor != null ) executor.shutdownNow();
-        executor = null;
-        taskqueue = null;
-    }
-
 
     @Override
     protected void destroyInternal() throws LifecycleException {
@@ -152,6 +111,49 @@ public class StandardThreadExecutor extends LifecycleMBeanBase
     }
 
 
+    /**
+     * 组件启动模板方法实现
+     */
+    @Override
+    protected void startInternal() throws LifecycleException {
+        /** 实例化任务队列，对JDK，LinkedBlockingQueue进行了封装
+         *  由于是LinkedBlockingQueue且maxQueueSize=Integer.MAX_VALUE，表明
+         * **/
+        taskqueue = new TaskQueue(maxQueueSize);
+        /** 实例化work线程工厂类,实现了JDK的ThreadFactory接口 **/
+        TaskThreadFactory tf = new TaskThreadFactory(namePrefix,daemon,getThreadPriority());
+        /** 实例化tomcat线程池，对JDK线程池进行了封装 **/
+        executor = new ThreadPoolExecutor(getMinSpareThreads(), getMaxThreads(), maxIdleTime, TimeUnit.MILLISECONDS,taskqueue, tf);
+        executor.setThreadRenewalDelay(threadRenewalDelay);
+        /** 初始化线程池中work线程达到minSpareThreads **/
+        if (prestartminSpareThreads) {
+            executor.prestartAllCoreThreads();
+        }
+        /** 将线程池设置给taskqueue **/
+        taskqueue.setParent(executor);
+        /** 设置当前组件状态  STARTING **/
+        setState(LifecycleState.STARTING);
+    }
+
+
+    /**
+     * 组件停止模板方法实现
+     */
+    @Override
+    protected void stopInternal() throws LifecycleException {
+        /** 设置当前组件状态  STOPPING **/
+        setState(LifecycleState.STOPPING);
+        /** 关闭线程池 **/
+        if ( executor != null ) executor.shutdownNow();
+        /** 重置属性 **/
+        executor = null;
+        taskqueue = null;
+    }
+
+
+    /**
+     * 执行任务，有超时设置
+     */
     @Override
     public void execute(Runnable command, long timeout, TimeUnit unit) {
         if ( executor != null ) {
@@ -162,6 +164,10 @@ public class StandardThreadExecutor extends LifecycleMBeanBase
     }
 
 
+    /**
+     * 执行任务
+     * @param command
+     */
     @Override
     public void execute(Runnable command) {
         if ( executor != null ) {

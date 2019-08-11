@@ -34,27 +34,46 @@ import org.apache.tomcat.util.res.StringManager;
 public abstract class LifecycleMBeanBase extends LifecycleBase
         implements JmxEnabled {
 
+
     private static final Log log = LogFactory.getLog(LifecycleMBeanBase.class);
 
+    /** 管理打印日志模板组件 **/
     private static final StringManager sm =
         StringManager.getManager("org.apache.catalina.util");
 
 
-    /* Cache components of the MBean registration. */
+    /**
+     * ObjectName 表示注册到JMX中Bean所对应的对象名称
+     *
+     * StringBuilder name = new StringBuilder(getDomain());
+     * name.append(':');
+     * name.append(objectNameKeyProperties);
+     * ObjectName on = new ObjectName(name.toString());
+     *
+     * ObjectName由
+     * 域名空间：对象属性组成
+     * getDomain():getObjectNameKeyProperties()
+     *
+     * Jmx bean ObjectName中域名空间
+     */
     private String domain = null;
+    /**
+     * 当前组件在JMX ObjectName
+     */
     private ObjectName oname = null;
-    protected MBeanServer mserver = null;
 
     /**
-     * Sub-classes wishing to perform additional initialization should override
-     * this method, ensuring that super.initInternal() is the first call in the
-     * overriding method.
+     * JMX MBeanServer
+     */
+    protected MBeanServer mserver = null;
+
+
+    /**
+     * 初始化模板方法实现
+     * 将当前组件注册到JMX MBeanServer中
      */
     @Override
     protected void initInternal() throws LifecycleException {
-
-        // If oname is not null then registration has already happened via
-        // preRegister().
         if (oname == null) {
             mserver = Registry.getRegistry(null, null).getMBeanServer();
 
@@ -64,9 +83,8 @@ public abstract class LifecycleMBeanBase extends LifecycleBase
 
 
     /**
-     * Sub-classes wishing to perform additional clean-up should override this
-     * method, ensuring that super.destroyInternal() is the last call in the
-     * overriding method.
+     * 销毁模板方法实现
+     * 将当前组件对象从jmx 注销
      */
     @Override
     protected void destroyInternal() throws LifecycleException {
@@ -75,9 +93,7 @@ public abstract class LifecycleMBeanBase extends LifecycleBase
 
 
     /**
-     * Specify the domain under which this component should be registered. Used
-     * with components that cannot (easily) navigate the component hierarchy to
-     * determine the correct domain to use.
+     * 设置当前组件ObjectName 域名空间
      */
     @Override
     public final void setDomain(String domain) {
@@ -86,8 +102,7 @@ public abstract class LifecycleMBeanBase extends LifecycleBase
 
 
     /**
-     * Obtain the domain under which this component will be / has been
-     * registered.
+     * 返回当前组件ObjectName 域名空间
      */
     @Override
     public final String getDomain() {
@@ -104,16 +119,41 @@ public abstract class LifecycleMBeanBase extends LifecycleBase
 
 
     /**
-     * Method implemented by sub-classes to identify the domain in which MBeans
-     * should be registered.
+     * ObjectName 表示注册到JMX中Bean所对应的对象名称
      *
-     * @return  The name of the domain to use to register MBeans.
+     * StringBuilder name = new StringBuilder(getDomain());
+     * name.append(':');
+     * name.append(objectNameKeyProperties);
+     * ObjectName on = new ObjectName(name.toString());
+     *
+     * ObjectName名称组成由
+     * 域名空间：对象属性组成
+     * getDomain():getObjectNameKeyProperties()
+     * 该方法为子组件模板方法实现，返回域名空间
      */
     protected abstract String getDomainInternal();
 
 
+
     /**
-     * Obtain the name under which this component has been registered with JMX.
+     * ObjectName 表示注册到JMX中Bean所对应的对象名称
+     *
+     * StringBuilder name = new StringBuilder(getDomain());
+     * name.append(':');
+     * name.append(objectNameKeyProperties);
+     * ObjectName on = new ObjectName(name.toString());
+     *
+     * ObjectName名称组成由
+     * 域名空间：对象属性集合
+     * getDomain():getObjectNameKeyProperties()
+     * 该方法父类LifecycleMBeanBase模板方法实现，返回对象属性集合
+     */
+    protected abstract String getObjectNameKeyProperties();
+
+
+
+    /**
+     * 返回当前组件注册到JMX 对象名称
      */
     @Override
     public final ObjectName getObjectName() {
@@ -122,28 +162,7 @@ public abstract class LifecycleMBeanBase extends LifecycleBase
 
 
     /**
-     * Allow sub-classes to specify the key properties component of the
-     * {@link ObjectName} that will be used to register this component.
-     *
-     * @return  The string representation of the key properties component of the
-     *          desired {@link ObjectName}
-     */
-    protected abstract String getObjectNameKeyProperties();
-
-
-    /**
-     * Utility method to enable sub-classes to easily register additional
-     * components that don't implement {@link JmxEnabled} with an MBean server.
-     * <br>
-     * Note: This method should only be used once {@link #initInternal()} has
-     * been called and before {@link #destroyInternal()} has been called.
-     *
-     * @param obj                       The object the register
-     * @param objectNameKeyProperties   The key properties component of the
-     *                                  object name to use to register the
-     *                                  object
-     *
-     * @return  The name used to register the object
+     * 向JMX MBeanServer注册 当前组件JMX Bean
      */
     protected final ObjectName register(Object obj,
             String objectNameKeyProperties) {
@@ -172,28 +191,21 @@ public abstract class LifecycleMBeanBase extends LifecycleBase
 
 
     /**
-     * Utility method to enable sub-classes to easily unregister additional
-     * components that don't implement {@link JmxEnabled} with an MBean server.
-     * <br>
-     * Note: This method should only be used once {@link #initInternal()} has
-     * been called and before {@link #destroyInternal()} has been called.
-     *
-     * @param on    The name of the component to unregister
+     * 向JMX MBeanServer注销JMX Bean
      */
     protected final void unregister(ObjectName on) {
 
-        // If null ObjectName, just return without complaint
         if (on == null) {
             return;
         }
 
-        // If the MBeanServer is null, log a warning & return
         if (mserver == null) {
             log.warn(sm.getString("lifecycleMBeanBase.unregisterNoServer", on));
             return;
         }
 
         try {
+            /** 注销 **/
             mserver.unregisterMBean(on);
         } catch (MBeanRegistrationException e) {
             log.warn(sm.getString("lifecycleMBeanBase.unregisterFail", on), e);
@@ -232,8 +244,7 @@ public abstract class LifecycleMBeanBase extends LifecycleBase
 
 
     /**
-     * Allows the object to be registered with an alternative
-     * {@link MBeanServer} and/or {@link ObjectName}.
+     * 重置当前对象属性
      */
     @Override
     public final ObjectName preRegister(MBeanServer server, ObjectName name)
