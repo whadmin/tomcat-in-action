@@ -57,16 +57,12 @@ public class StandardHost extends ContainerBase implements Host {
     private static final Log log = LogFactory.getLog(StandardHost.class);
 
     // ----------------------------------------------------------- Constructors
-
-
     /**
-     * Create a new StandardHost component with the default basic Valve.
+     * 实例化StandardHost组件
      */
     public StandardHost() {
-
         super();
         pipeline.setBasic(new StandardHostValve());
-
     }
 
 
@@ -74,115 +70,113 @@ public class StandardHost extends ContainerBase implements Host {
 
 
     /**
-     * The set of aliases for this Host.
+     * 别名数组
      */
     private String[] aliases = new String[0];
 
     private final Object aliasesLock = new Object();
 
-
     /**
-     * The application root for this Host.
+     * Host组件的应用程序根目录。
      */
     private String appBase = "webapps";
     private volatile File appBaseFile = null;
 
     /**
-     * The XML root for this Host.
+     * Host组件的XML根目录
      */
     private String xmlBase = null;
 
     /**
-     * host's default config path
+     * Host组件默认配置路径
      */
     private volatile File hostConfigBase = null;
 
     /**
-     * The auto deploy flag for this Host.
+     * 自动部署
+     * 是否应在Tomcat运行时Host组件定期检查新的或更新的Web应用程序。如果为true，则Tomcat会定期检查appBase和xmlBase目录
+     * 对于更新的应用程序触发Web应用程序的重新加载
      */
     private boolean autoDeploy = true;
 
 
     /**
-     * The Java class name of the default context configuration class
-     * for deployed web applications.
+     * 子组件Context配置实现类
      */
     private String configClass =
         "org.apache.catalina.startup.ContextConfig";
 
 
     /**
-     * The Java class name of the default Context implementation class for
-     * deployed web applications.
+     * 子组件Context实现类
      */
     private String contextClass =
         "org.apache.catalina.core.StandardContext";
 
 
     /**
-     * The deploy on startup flag for this Host.
+     * 标志值指示在启动Host组件时是否应自动部署Host组件的Web应用程序。标志的值默认为true。
      */
     private boolean deployOnStartup = true;
 
 
     /**
-     * deploy Context XML config files property.
+     * 禁用解析嵌入式应用（位于内上下文XML描述符 /META-INF/context.xml）
      */
     private boolean deployXML = !Globals.IS_SECURITY_ENABLED;
 
 
     /**
-     * Should XML files be copied to
-     * $CATALINA_BASE/conf/&lt;engine&gt;/&lt;host&gt; by default when
-     * a web application is deployed?
+     * 启动想嵌入在应用程序（位于内上下文XML描述符 /META-INF/context.xml）
      */
     private boolean copyXML = false;
 
 
     /**
-     * The Java class name of the default error reporter implementation class
-     * for deployed web applications.
+     * Host组件子组件Pilpline组件内处理错误Valve实现类
      */
     private String errorReportValveClass =
         "org.apache.catalina.valves.ErrorReportValve";
 
 
     /**
-     * Unpack WARs property.
+     * 是否解压放在Host组件的应用程序根目录war包在加载运行
      */
     private boolean unpackWARs = true;
 
 
     /**
-     * Work Directory base for applications.
+     * 应用程序要使用的临时目录的路径名，每个应用程序都有自己的子目录
+     * catalina_home\work\Catalina\localhost
      */
     private String workDir = null;
 
 
     /**
-     * Should we create directories upon startup for appBase and xmlBase
+     * 启动时为appbase和xmlbase创建目录
      */
     private boolean createDirs = true;
 
 
     /**
-     * Track the class loaders for the child web applications so memory leaks
-     * can be detected.
+     * 跟踪子Web应用程序的类加载器，以便检测内存泄漏。
      */
     private final Map<ClassLoader, String> childClassLoaders =
             new WeakHashMap<>();
 
 
     /**
-     * Any file or directory in {@link #appBase} that this pattern matches will
-     * be ignored by the automatic deployment process (both
-     * {@link #deployOnStartup} and {@link #autoDeploy}).
+     * 正则表达式定义自动部署应用
      */
     private Pattern deployIgnore = null;
 
 
+    /**
+     * 此标志确定作为自动部署过程的一部分
+     */
     private boolean undeployOldVersions = false;
 
+    /** true如果任何具有load-on-startup> = 0的servlet无法自己启动，则设置为让每个子上下文都无法启动它。 **/
     private boolean failCtxIfServletStartFails = false;
 
 
@@ -206,51 +200,33 @@ public class StandardHost extends ContainerBase implements Host {
     }
 
 
-    /**
-     * Return the application root for this Host.  This can be an absolute
-     * pathname, a relative pathname, or a URL.
-     */
     @Override
     public String getAppBase() {
         return (this.appBase);
     }
 
 
-    /**
-     * ({@inheritDoc}
-     */
     @Override
     public File getAppBaseFile() {
-
         if (appBaseFile != null) {
             return appBaseFile;
         }
 
         File file = new File(getAppBase());
 
-        // If not absolute, make it absolute
         if (!file.isAbsolute()) {
             file = new File(getCatalinaBase(), file.getPath());
         }
 
-        // Make it canonical if possible
         try {
             file = file.getCanonicalFile();
         } catch (IOException ioe) {
-            // Ignore
         }
-
         this.appBaseFile = file;
         return file;
     }
 
 
-    /**
-     * Set the application root for this Host.  This can be an absolute
-     * pathname, a relative pathname, or a URL.
-     *
-     * @param appBase The new application root
-     */
     @Override
     public void setAppBase(String appBase) {
 
@@ -264,41 +240,20 @@ public class StandardHost extends ContainerBase implements Host {
     }
 
 
-    /**
-     * Return the XML root for this Host.  This can be an absolute
-     * pathname, a relative pathname, or a URL.
-     * If null, defaults to
-     * ${catalina.base}/conf/&lt;engine name&gt;/&lt;host name&gt; directory
-     */
     @Override
     public String getXmlBase() {
-
         return (this.xmlBase);
-
     }
 
 
-    /**
-     * Set the Xml root for this Host.  This can be an absolute
-     * pathname, a relative pathname, or a URL.
-     * If null, defaults to
-     * ${catalina.base}/conf/&lt;engine name&gt;/&lt;host name&gt; directory
-     *
-     * @param xmlBase The new XML root
-     */
     @Override
     public void setXmlBase(String xmlBase) {
-
         String oldXmlBase = this.xmlBase;
         this.xmlBase = xmlBase;
         support.firePropertyChange("xmlBase", oldXmlBase, this.xmlBase);
-
     }
 
 
-    /**
-     * ({@inheritDoc}
-     */
     @Override
     public File getConfigBaseFile() {
         if (hostConfigBase != null) {
@@ -330,292 +285,149 @@ public class StandardHost extends ContainerBase implements Host {
     }
 
 
-    /**
-     * @return <code>true</code> if the Host will attempt to create directories for appBase and xmlBase
-     * unless they already exist.
-     */
     @Override
     public boolean getCreateDirs() {
         return createDirs;
     }
 
-    /**
-     * Set to <code>true</code> if the Host should attempt to create directories for xmlBase and appBase upon startup
-     * @param createDirs the new flag value
-     */
+
     @Override
     public void setCreateDirs(boolean createDirs) {
         this.createDirs = createDirs;
     }
 
-    /**
-     * @return the value of the auto deploy flag.  If true, it indicates that
-     * this host's child webapps will be dynamically deployed.
-     */
+
     @Override
     public boolean getAutoDeploy() {
-
         return (this.autoDeploy);
-
     }
 
 
-    /**
-     * Set the auto deploy flag value for this host.
-     *
-     * @param autoDeploy The new auto deploy flag
-     */
     @Override
     public void setAutoDeploy(boolean autoDeploy) {
-
         boolean oldAutoDeploy = this.autoDeploy;
         this.autoDeploy = autoDeploy;
         support.firePropertyChange("autoDeploy", oldAutoDeploy,
                                    this.autoDeploy);
-
     }
 
 
-    /**
-     * @return the Java class name of the context configuration class
-     * for new web applications.
-     */
     @Override
     public String getConfigClass() {
-
         return (this.configClass);
-
     }
 
 
-    /**
-     * Set the Java class name of the context configuration class
-     * for new web applications.
-     *
-     * @param configClass The new context configuration class
-     */
     @Override
     public void setConfigClass(String configClass) {
-
         String oldConfigClass = this.configClass;
         this.configClass = configClass;
         support.firePropertyChange("configClass",
                                    oldConfigClass, this.configClass);
-
     }
 
 
-    /**
-     * @return the Java class name of the Context implementation class
-     * for new web applications.
-     */
     public String getContextClass() {
-
         return (this.contextClass);
-
     }
 
 
-    /**
-     * Set the Java class name of the Context implementation class
-     * for new web applications.
-     *
-     * @param contextClass The new context implementation class
-     */
     public void setContextClass(String contextClass) {
-
         String oldContextClass = this.contextClass;
         this.contextClass = contextClass;
         support.firePropertyChange("contextClass",
                                    oldContextClass, this.contextClass);
-
     }
 
 
-    /**
-     * @return the value of the deploy on startup flag.  If <code>true</code>, it indicates
-     * that this host's child webapps should be discovered and automatically
-     * deployed at startup time.
-     */
     @Override
     public boolean getDeployOnStartup() {
-
         return (this.deployOnStartup);
-
     }
 
 
-    /**
-     * Set the deploy on startup flag value for this host.
-     *
-     * @param deployOnStartup The new deploy on startup flag
-     */
     @Override
     public void setDeployOnStartup(boolean deployOnStartup) {
-
         boolean oldDeployOnStartup = this.deployOnStartup;
         this.deployOnStartup = deployOnStartup;
         support.firePropertyChange("deployOnStartup", oldDeployOnStartup,
                                    this.deployOnStartup);
-
     }
 
 
-    /**
-     * @return <code>true</code> if XML context descriptors should be deployed.
-     */
     public boolean isDeployXML() {
-
         return deployXML;
-
     }
 
 
-    /**
-     * Deploy XML Context config files flag mutator.
-     *
-     * @param deployXML <code>true</code> if context descriptors should be deployed
-     */
     public void setDeployXML(boolean deployXML) {
-
         this.deployXML = deployXML;
+    }
+
+
+    public boolean isCopyXML() { return this.copyXML;
 
     }
 
 
-    /**
-     * @return the copy XML config file flag for this component.
-     */
-    public boolean isCopyXML() {
-
-        return this.copyXML;
-
-    }
-
-
-    /**
-     * Set the copy XML config file flag for this component.
-     *
-     * @param copyXML The new copy XML flag
-     */
     public void setCopyXML(boolean copyXML) {
-
         this.copyXML = copyXML;
-
     }
 
 
-    /**
-     * @return the Java class name of the error report valve class
-     * for new web applications.
-     */
     public String getErrorReportValveClass() {
-
         return (this.errorReportValveClass);
-
     }
 
 
-    /**
-     * Set the Java class name of the error report valve class
-     * for new web applications.
-     *
-     * @param errorReportValveClass The new error report valve class
-     */
     public void setErrorReportValveClass(String errorReportValveClass) {
-
         String oldErrorReportValveClassClass = this.errorReportValveClass;
         this.errorReportValveClass = errorReportValveClass;
         support.firePropertyChange("errorReportValveClass",
                                    oldErrorReportValveClassClass,
                                    this.errorReportValveClass);
-
     }
 
-
-    /**
-     * @return the canonical, fully qualified, name of the virtual host
-     * this Container represents.
-     */
     @Override
     public String getName() {
-
         return (name);
-
     }
 
 
-    /**
-     * Set the canonical, fully qualified, name of the virtual host
-     * this Container represents.
-     *
-     * @param name Virtual host name
-     *
-     * @exception IllegalArgumentException if name is null
-     */
     @Override
     public void setName(String name) {
-
         if (name == null)
             throw new IllegalArgumentException
                 (sm.getString("standardHost.nullName"));
 
         name = name.toLowerCase(Locale.ENGLISH);      // Internally all names are lower case
-
         String oldName = this.name;
         this.name = name;
         support.firePropertyChange("name", oldName, this.name);
-
     }
 
-
-    /**
-     * @return <code>true</code> if WARs should be unpacked on deployment.
-     */
     public boolean isUnpackWARs() {
-
         return (unpackWARs);
-
     }
 
 
-    /**
-     * Unpack WARs flag mutator.
-     *
-     * @param unpackWARs <code>true</code> to unpack WARs on deployment
-     */
     public void setUnpackWARs(boolean unpackWARs) {
-
         this.unpackWARs = unpackWARs;
-
     }
 
 
-    /**
-     * @return host work directory base.
-     */
     public String getWorkDir() {
-
         return (workDir);
     }
 
 
-    /**
-     * Set host work directory base.
-     *
-     * @param workDir the new base work folder for this host
-     */
-    public void setWorkDir(String workDir) {
 
+    public void setWorkDir(String workDir) {
         this.workDir = workDir;
     }
 
 
-    /**
-     * @return the regular expression that defines the files and directories in
-     * the host's {@link #getAppBase} that will be ignored by the automatic
-     * deployment process.
-     */
+
     @Override
     public String getDeployIgnore() {
         if (deployIgnore == null) {
@@ -625,24 +437,13 @@ public class StandardHost extends ContainerBase implements Host {
     }
 
 
-    /**
-     * @return the compiled regular expression that defines the files and
-     * directories in the host's {@link #getAppBase} that will be ignored by the
-     * automatic deployment process.
-     */
     @Override
     public Pattern getDeployIgnorePattern() {
         return this.deployIgnore;
     }
 
 
-    /**
-     * Set the regular expression that defines the files and directories in
-     * the host's {@link #getAppBase} that will be ignored by the automatic
-     * deployment process.
-     *
-     * @param deployIgnore the regexp
-     */
+
     @Override
     public void setDeployIgnore(String deployIgnore) {
         String oldDeployIgnore;
@@ -662,19 +463,13 @@ public class StandardHost extends ContainerBase implements Host {
     }
 
 
-    /**
-     * @return <code>true</code> if a webapp start should fail if a Servlet startup fails
-     */
+
     public boolean isFailCtxIfServletStartFails() {
         return failCtxIfServletStartFails;
     }
 
 
-    /**
-     * Change the behavior of Servlet startup errors on web application starts.
-     * @param failCtxIfServletStartFails <code>false</code> to ignore errors on Servlets which
-     *    are stated when the web application starts
-     */
+
     public void setFailCtxIfServletStartFails(
             boolean failCtxIfServletStartFails) {
         boolean oldFailCtxIfServletStartFails = this.failCtxIfServletStartFails;
@@ -689,15 +484,11 @@ public class StandardHost extends ContainerBase implements Host {
 
 
     /**
-     * Add an alias name that should be mapped to this same Host.
-     *
-     * @param alias The alias to be added
+     * 给host组件添加别名
      */
     @Override
     public void addAlias(String alias) {
-
         alias = alias.toLowerCase(Locale.ENGLISH);
-
         synchronized (aliasesLock) {
             // Skip duplicate aliases
             for (int i = 0; i < aliases.length; i++) {
@@ -711,34 +502,72 @@ public class StandardHost extends ContainerBase implements Host {
             newAliases[aliases.length] = alias;
             aliases = newAliases;
         }
-        // Inform interested listeners
+        /** 触发属性变更 **/
         fireContainerEvent(ADD_ALIAS_EVENT, alias);
+    }
 
+    /**
+     * 返回host组件所有别名
+     */
+    @Override
+    public String[] findAliases() {
+        synchronized (aliasesLock) {
+            return (this.aliases);
+        }
     }
 
 
     /**
-     * Add a child Container, only if the proposed child is an implementation
-     * of Context.
-     *
-     * @param child Child container to be added
+     * 删除host组件别名
+     */
+    @Override
+    public void removeAlias(String alias) {
+
+        alias = alias.toLowerCase(Locale.ENGLISH);
+
+        synchronized (aliasesLock) {
+
+            int n = -1;
+            for (int i = 0; i < aliases.length; i++) {
+                if (aliases[i].equals(alias)) {
+                    n = i;
+                    break;
+                }
+            }
+            if (n < 0)
+                return;
+
+            int j = 0;
+            String results[] = new String[aliases.length - 1];
+            for (int i = 0; i < aliases.length; i++) {
+                if (i != n)
+                    results[j++] = aliases[i];
+            }
+            aliases = results;
+        }
+
+        // Inform interested listeners
+        fireContainerEvent(REMOVE_ALIAS_EVENT, alias);
+    }
+
+
+    /**
+     * 添加一个子容器
      */
     @Override
     public void addChild(Container child) {
-
+        /** 给子容器组件添加MemoryLeakTrackingListener监听器 **/
         child.addLifecycleListener(new MemoryLeakTrackingListener());
 
         if (!(child instanceof Context))
             throw new IllegalArgumentException
                 (sm.getString("standardHost.notContext"));
         super.addChild(child);
-
     }
 
 
     /**
-     * Used to ensure the regardless of {@link Context} implementation, a record
-     * is kept of the class loader used every time a context starts.
+     * 处理AFTER_START_EVENT生命周期事件，设置childClassLoaders属性
      */
     private class MemoryLeakTrackingListener implements LifecycleListener {
         @Override
@@ -755,19 +584,14 @@ public class StandardHost extends ContainerBase implements Host {
 
 
     /**
-     * Attempt to identify the contexts that have a class loader memory leak.
-     * This is usually triggered on context reload. Note: This method attempts
-     * to force a full garbage collection. This should be used with extreme
-     * caution on a production system.
-     *
-     * @return a list of possibly leaking contexts
+     * 尝试识别有类加载器内存泄漏的上下文。
+     * 这通常在上下文重新加载时触发。注意：此方法尝试
+     * 强制完全收集垃圾。这应该用于极端
+     * 生产系统注意事项。
      */
     public String[] findReloadedContextMemoryLeaks() {
-
         System.gc();
-
         List<String> result = new ArrayList<>();
-
         for (Map.Entry<ClassLoader, String> entry :
                 childClassLoaders.entrySet()) {
             ClassLoader cl = entry.getKey();
@@ -777,75 +601,19 @@ public class StandardHost extends ContainerBase implements Host {
                 }
             }
         }
-
         return result.toArray(new String[result.size()]);
     }
 
-    /**
-     * @return the set of alias names for this Host.  If none are defined,
-     * a zero length array is returned.
-     */
-    @Override
-    public String[] findAliases() {
 
-        synchronized (aliasesLock) {
-            return (this.aliases);
-        }
-
-    }
 
 
     /**
-     * Remove the specified alias name from the aliases for this Host.
-     *
-     * @param alias Alias name to be removed
-     */
-    @Override
-    public void removeAlias(String alias) {
-
-        alias = alias.toLowerCase(Locale.ENGLISH);
-
-        synchronized (aliasesLock) {
-
-            // Make sure this alias is currently present
-            int n = -1;
-            for (int i = 0; i < aliases.length; i++) {
-                if (aliases[i].equals(alias)) {
-                    n = i;
-                    break;
-                }
-            }
-            if (n < 0)
-                return;
-
-            // Remove the specified alias
-            int j = 0;
-            String results[] = new String[aliases.length - 1];
-            for (int i = 0; i < aliases.length; i++) {
-                if (i != n)
-                    results[j++] = aliases[i];
-            }
-            aliases = results;
-
-        }
-
-        // Inform interested listeners
-        fireContainerEvent(REMOVE_ALIAS_EVENT, alias);
-
-    }
-
-
-    /**
-     * Start this component and implement the requirements
-     * of {@link org.apache.catalina.util.LifecycleBase#startInternal()}.
-     *
-     * @exception LifecycleException if this component detects a fatal error
-     *  that prevents this component from being used
+     * 启动组件模板实现
      */
     @Override
     protected synchronized void startInternal() throws LifecycleException {
 
-        // Set error report valve
+        /** 将errorReportValveClass 类对象添加到Host组件Pipeline组件内 **/
         String errorValve = getErrorReportValveClass();
         if ((errorValve != null) && (!errorValve.equals(""))) {
             try {
@@ -874,11 +642,6 @@ public class StandardHost extends ContainerBase implements Host {
 
 
     // -------------------- JMX  --------------------
-    /**
-      * @return the MBean Names of the Valves associated with this Host
-      *
-      * @exception Exception if an MBean cannot be created or registered
-      */
      public String[] getValveNames() throws Exception {
          Valve [] valves = this.getPipeline().getValves();
          String [] mbeanNames = new String[valves.length];

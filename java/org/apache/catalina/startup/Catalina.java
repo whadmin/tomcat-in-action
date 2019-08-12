@@ -374,9 +374,7 @@ public class Catalina {
                             "org.apache.catalina.connector.Connector");
 
 
-
-
-
+        //解析<Server><Service><Connector><SSLHostConfig>标签
         digester.addObjectCreate("Server/Service/Connector/SSLHostConfig",
                                  "org.apache.tomcat.util.net.SSLHostConfig");
         digester.addSetProperties("Server/Service/Connector/SSLHostConfig");
@@ -384,6 +382,7 @@ public class Catalina {
                 "addSslHostConfig",
                 "org.apache.tomcat.util.net.SSLHostConfig");
 
+        //解析<Server><Service><Connector><Certificate>标签
         digester.addRule("Server/Service/Connector/SSLHostConfig/Certificate",
                          new CertificateCreateRule());
         digester.addRule("Server/Service/Connector/SSLHostConfig/Certificate",
@@ -392,6 +391,7 @@ public class Catalina {
                             "addCertificate",
                             "org.apache.tomcat.util.net.SSLHostConfigCertificate");
 
+        //解析<Server><Service><Connector><OpenSSLConf>标签
         digester.addObjectCreate("Server/Service/Connector/SSLHostConfig/OpenSSLConf",
                                  "org.apache.tomcat.util.net.openssl.OpenSSLConf");
         digester.addSetProperties("Server/Service/Connector/SSLHostConfig/OpenSSLConf");
@@ -399,6 +399,7 @@ public class Catalina {
                             "setOpenSslConf",
                             "org.apache.tomcat.util.net.openssl.OpenSSLConf");
 
+        //解析<Server><Service><Connector><OpenSSLConf><OpenSSLConfCmd>标签
         digester.addObjectCreate("Server/Service/Connector/SSLHostConfig/OpenSSLConf/OpenSSLConfCmd",
                                  "org.apache.tomcat.util.net.openssl.OpenSSLConfCmd");
         digester.addSetProperties("Server/Service/Connector/SSLHostConfig/OpenSSLConf/OpenSSLConfCmd");
@@ -406,6 +407,7 @@ public class Catalina {
                             "addCmd",
                             "org.apache.tomcat.util.net.openssl.OpenSSLConfCmd");
 
+        //解析<Server><Service><Connector><Listener>标签
         digester.addObjectCreate("Server/Service/Connector/Listener",
                                  null, // MUST be specified in the element
                                  "className");
@@ -414,6 +416,8 @@ public class Catalina {
                             "addLifecycleListener",
                             "org.apache.catalina.LifecycleListener");
 
+
+        //解析<Server><Service><Connector><UpgradeProtocol>标签
         digester.addObjectCreate("Server/Service/Connector/UpgradeProtocol",
                                   null, // MUST be specified in the element
                                   "className");
@@ -422,19 +426,29 @@ public class Catalina {
                             "addUpgradeProtocol",
                             "org.apache.coyote.UpgradeProtocol");
 
-        /** 为指定xml标签添加一组规则 **/
+        // 解析<Server><GlobalNamingResources>标签,设置NamingRuleSet作为解析规则组
         digester.addRuleSet(new NamingRuleSet("Server/GlobalNamingResources/"));
+
+        // 解析<Server><Service>标签,设置EngineRuleSet作为解析规则组
         digester.addRuleSet(new EngineRuleSet("Server/Service/"));
 
-        //解析<Server><Service><Connector>标签
+        // 解析<Server><Service><Engine>标签,设置HostRuleSet作为解析规则组
         digester.addRuleSet(new HostRuleSet("Server/Service/Engine/"));
+
+        // 解析<Server><Service><Engine><Host>标签,设置ContextRuleSet作为解析规则组
         digester.addRuleSet(new ContextRuleSet("Server/Service/Engine/Host/"));
+
+        // 解析<Server><Service><Engine><Host>标签,设置ClusterRuleSet作为解析规则组
         addClusterRuleSet(digester, "Server/Service/Engine/Host/Cluster/");
+
+        // 解析<Server><Service><Engine><Host><Context>标签,设置一组规则
         digester.addRuleSet(new NamingRuleSet("Server/Service/Engine/Host/Context/"));
 
-        // When the 'engine' is found, set the parentClassLoader.
+        // 解析<Server><Service><Engine>标签，使用SetParentClassLoaderRule作为规则解析器
         digester.addRule("Server/Service/Engine",
                          new SetParentClassLoaderRule(parentClassLoader));
+
+        //解析<Server><Service><Engine><Cluster>标签,设置ClusterRuleSet作为解析规则组
         addClusterRuleSet(digester, "Server/Service/Engine/Cluster/");
 
         long t2=System.currentTimeMillis();
@@ -446,7 +460,7 @@ public class Catalina {
     }
 
     /**
-     * 使用digester为指定xml规则添加  ClusterRuleSet规则组
+     * 为指定标签添加 ClusterRuleSet 规则处理组
      */
     private void addClusterRuleSet(Digester digester, String prefix) {
         Class<?> clazz = null;

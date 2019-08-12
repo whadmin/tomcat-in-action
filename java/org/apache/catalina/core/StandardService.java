@@ -73,7 +73,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
     private Server server = null;
 
     /**
-     *  属性变更监听器
+     * 属性变更处理器
      */
     protected final PropertyChangeSupport support = new PropertyChangeSupport(this);
 
@@ -108,7 +108,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
 
     /**
-     * 请求映射对象监听器
+     * 请求映射监听器
      */
     protected final MapperListener mapperListener = new MapperListener(this);
 

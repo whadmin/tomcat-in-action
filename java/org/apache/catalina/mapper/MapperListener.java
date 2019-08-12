@@ -161,7 +161,6 @@ public class MapperListener extends LifecycleMBeanBase
 
     // --------------------------------------------- Container Listener methods
 
-
     /**
      * ContainerEvent事件处理
      */
@@ -327,6 +326,45 @@ public class MapperListener extends LifecycleMBeanBase
                     context.getWebappVersion());
         }
     }
+
+    /**
+     * LifecycleEvent事件处理
+     */
+    @Override
+    public void lifecycleEvent(LifecycleEvent event) {
+        /** AFTER_START_EVENT 表示启动一个容器 **/
+        if (event.getType().equals(Lifecycle.AFTER_START_EVENT)) {
+            Object obj = event.getSource();
+            /** 判断容器类型注册到mapper **/
+            if (obj instanceof Wrapper) {
+                Wrapper w = (Wrapper) obj;
+                if (w.getParent().getState().isAvailable()) {
+                    registerWrapper(w);
+                }
+            } else if (obj instanceof Context) {
+                Context c = (Context) obj;
+                if (c.getParent().getState().isAvailable()) {
+                    registerContext(c);
+                }
+            } else if (obj instanceof Host) {
+                registerHost((Host) obj);
+            }
+        }
+        /** AFTER_START_EVENT 表示停止一个容器操作之前 **/
+        else if (event.getType().equals(Lifecycle.BEFORE_STOP_EVENT)) {
+            Object obj = event.getSource();
+            /** 判断容器类型从mapper注销 **/
+            if (obj instanceof Wrapper) {
+                unregisterWrapper((Wrapper) obj);
+            } else if (obj instanceof Context) {
+                unregisterContext((Context) obj);
+            } else if (obj instanceof Host) {
+                unregisterHost((Host) obj);
+            }
+        }
+    }
+
+
 
 
     // ------------------------------------------------------ Protected Methods
@@ -551,9 +589,6 @@ public class MapperListener extends LifecycleMBeanBase
         }
     }
 
-
-
-
     /**
      * 将wrapper组件映射配置封装为WrapperMappingInfo，放入列表wrappers
      *
@@ -573,39 +608,6 @@ public class MapperListener extends LifecycleMBeanBase
                                    && mapping.endsWith("/*"));
             wrappers.add(new WrapperMappingInfo(mapping, wrapper, jspWildCard,
                     resourceOnly));
-        }
-    }
-
-    @Override
-    public void lifecycleEvent(LifecycleEvent event) {
-        if (event.getType().equals(Lifecycle.AFTER_START_EVENT)) {
-            Object obj = event.getSource();
-            if (obj instanceof Wrapper) {
-                Wrapper w = (Wrapper) obj;
-                // Only if the Context has started. If it has not, then it will
-                // have its own "after_start" event later.
-                if (w.getParent().getState().isAvailable()) {
-                    registerWrapper(w);
-                }
-            } else if (obj instanceof Context) {
-                Context c = (Context) obj;
-                // Only if the Host has started. If it has not, then it will
-                // have its own "after_start" event later.
-                if (c.getParent().getState().isAvailable()) {
-                    registerContext(c);
-                }
-            } else if (obj instanceof Host) {
-                registerHost((Host) obj);
-            }
-        } else if (event.getType().equals(Lifecycle.BEFORE_STOP_EVENT)) {
-            Object obj = event.getSource();
-            if (obj instanceof Wrapper) {
-                unregisterWrapper((Wrapper) obj);
-            } else if (obj instanceof Context) {
-                unregisterContext((Context) obj);
-            } else if (obj instanceof Host) {
-                unregisterHost((Host) obj);
-            }
         }
     }
 

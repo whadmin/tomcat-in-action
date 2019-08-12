@@ -136,35 +136,21 @@ import org.apache.tomcat.util.scan.StandardJarScanner;
 import org.apache.tomcat.util.security.PrivilegedGetTccl;
 import org.apache.tomcat.util.security.PrivilegedSetTccl;
 
-/**
- * Standard implementation of the <b>Context</b> interface.  Each
- * child container must be a Wrapper implementation to process the
- * requests directed to a particular servlet.
- *
- * @author Craig R. McClanahan
- * @author Remy Maucherat
- */
+
 public class StandardContext extends ContainerBase
         implements Context, NotificationEmitter {
 
     private static final Log log = LogFactory.getLog(StandardContext.class);
 
-
     // ----------------------------------------------------------- Constructors
-
-
     /**
-     * Create a new StandardContext component with the default basic Valve.
+     * 实例化StandardContext，并初始化pipeline组件Basic
      */
     public StandardContext() {
-
         super();
         pipeline.setBasic(new StandardContextValve());
         broadcaster = new NotificationBroadcasterSupport();
-        // Set defaults
         if (!Globals.STRICT_SERVLET_COMPLIANCE) {
-            // Strict servlet compliance requires all extension mapped servlets
-            // to be checked against welcome files
             resourceOnlyServlets.add("jsp");
         }
     }
