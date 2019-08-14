@@ -64,93 +64,82 @@ public class WebappLoader extends LifecycleMBeanBase
 
 
     // ----------------------------------------------------------- Constructors
-
     /**
-     * Construct a new WebappLoader with no defined parent class loader
-     * (so that the actual parent will be the system class loader).
+     * 实例化WebappLoader
      */
     public WebappLoader() {
         this(null);
     }
 
-
     /**
-     * Construct a new WebappLoader with the specified class loader
-     * to be defined as the parent of the ClassLoader we ultimately create.
-     *
-     * @param parent The parent class loader
+     * 实例化WebappLoader，并指定WebappClassLoader类加载器对应父类加载器
      */
     public WebappLoader(ClassLoader parent) {
         super();
         this.parentClassLoader = parent;
     }
 
-
     // ----------------------------------------------------- Instance Variables
 
     /**
-     * The class loader being managed by this Loader component.
+     * WebappClassLoader类加载器
      */
     private WebappClassLoaderBase classLoader = null;
 
 
     /**
-     * The Context with which this Loader has been associated.
+     * 关联的context容器组件
      */
     private Context context = null;
 
 
     /**
-     * The "follow standard delegation model" flag that will be used to
-     * configure our ClassLoader.
+     * 是否允许使用代理类加载器（非默认类加载器）
      */
     private boolean delegate = false;
 
 
     /**
-     * The Java class name of the ClassLoader implementation to be used.
-     * This class should extend WebappClassLoaderBase, otherwise, a different
-     * loader implementation must be used.
+     * WebappClassLoader类加载器实现类
      */
     private String loaderClass = ParallelWebappClassLoader.class.getName();
 
 
     /**
-     * The parent class loader of the class loader we will create.
+     * WebappClassLoader类加载器对应的父类加载器
      */
     private ClassLoader parentClassLoader = null;
 
 
     /**
-     * The reloadable flag for this Loader.
+     * 是否开启热加载机制
+     * Loader组件定时任务触发调用modified方法检查检查已经加载的资源是否有修改/增加/删减,如果发现资源由变更触发StandardContext组件reload;
      */
     private boolean reloadable = false;
 
 
     /**
-     * The string manager for this package.
+     * 日志格式管理组件
      */
     protected static final StringManager sm =
         StringManager.getManager(Constants.Package);
 
 
     /**
-     * The property change support for this component.
+     * 属性变更监听器
      */
     protected final PropertyChangeSupport support = new PropertyChangeSupport(this);
 
 
     /**
-     * Classpath set in the loader.
+     * WebappClassLoader类加载器加载类文件路径
      */
     private String classpath = null;
 
 
     // ------------------------------------------------------------- Properties
 
-    /**
-     * Return the Java class loader to be used by this Container.
-     */
+
     @Override
     public ClassLoader getClassLoader() {
         return classLoader;
@@ -165,50 +154,40 @@ public class WebappLoader extends LifecycleMBeanBase
 
     @Override
     public void setContext(Context context) {
-
         if (this.context == context) {
             return;
         }
 
+        /** 如果当前容器组件不是运行，则抛出异常 **/
         if (getState().isAvailable()) {
             throw new IllegalStateException(
                     sm.getString("webappLoader.setContext.ise"));
         }
 
-        // Deregister from the old Context (if any)
+        /** 原始关联的context属性变更监听器中删除当前对象 **/
         if (this.context != null) {
             this.context.removePropertyChangeListener(this);
         }
 
-        // Process this property change
+        /** 将WebappLoader属性更改通知给监听器  **/
         Context oldContext = this.context;
         this.context = context;
         support.firePropertyChange("context", oldContext, this.context);
 
-        // Register with the new Container (if any)
         if (this.context != null) {
+            /** 从context组件获取配置是否热加载，设置到reloadable **/
             setReloadable(this.context.getReloadable());
+            /** 将当前对象作为属性变更监听器设置到context容器组件 **/
             this.context.addPropertyChangeListener(this);
         }
     }
 
 
-    /**
-     * Return the "follow standard delegation model" flag used to configure
-     * our ClassLoader.
-     */
     @Override
     public boolean getDelegate() {
         return this.delegate;
     }
 
-
-    /**
-     * Set the "follow standard delegation model" flag used to configure
-     * our ClassLoader.
-     *
-     * @param delegate The new flag
-     */
     @Override
     public void setDelegate(boolean delegate) {
         boolean oldDelegate = this.delegate;
@@ -218,38 +197,23 @@ public class WebappLoader extends LifecycleMBeanBase
     }
 
 
-    /**
-     * @return the ClassLoader class name.
-     */
+
     public String getLoaderClass() {
         return (this.loaderClass);
     }
 
 
-    /**
-     * Set the ClassLoader class name.
-     *
-     * @param loaderClass The new ClassLoader class name
-     */
     public void setLoaderClass(String loaderClass) {
         this.loaderClass = loaderClass;
     }
 
 
-    /**
-     * Return the reloadable flag for this Loader.
-     */
     @Override
     public boolean getReloadable() {
         return this.reloadable;
     }
 
 
-    /**
-     * Set the reloadable flag for this Loader.
-     *
-     * @param reloadable The new reloadable flag
-     */
     @Override
     public void setReloadable(boolean reloadable) {
         // Process this property change
@@ -264,22 +228,26 @@ public class WebappLoader extends LifecycleMBeanBase
     // --------------------------------------------------------- Public Methods
 
     /**
-     * Add a property change listener to this component.
-     *
-     * @param listener The listener to add
+     * 添加一个属性监听器
      */
     @Override
     public void addPropertyChangeListener(PropertyChangeListener listener) {
-
         support.addPropertyChangeListener(listener);
+    }
 
+    /**
+     * 删除一个属性监听器
+     */
+    @Override
+    public void removePropertyChangeListener(PropertyChangeListener listener) {
+        support.removePropertyChangeListener(listener);
     }
 
 
+
     /**
-     * Execute a periodic task, such as reloading, etc. This method will be
-     * invoked inside the classloading context of this container. Unexpected
-     * throwables will be caught and logged.
+     * 定时任务处理，
+     * reloadable=true表示支持热加载，定时执行modified方法检查查已经加载的资源是否有修改/增加/删减,如果发现资源由变更触发StandardContext组件reload
      */
     @Override
     public void backgroundProcess() {
@@ -291,6 +259,7 @@ public class WebappLoader extends LifecycleMBeanBase
                     context.reload();
                 }
             } finally {
+                /** 将当前组件classLoader设置到线程的上下文类加载器中 **/
                 if (context != null && context.getLoader() != null) {
                     Thread.currentThread().setContextClassLoader
                         (context.getLoader().getClassLoader());
@@ -300,6 +269,9 @@ public class WebappLoader extends LifecycleMBeanBase
     }
 
 
+    /**
+     * 获取类加载器加载的url资源路径，转为为字符串数组返回
+     */
     public String[] getLoaderRepositories() {
         if (classLoader == null) {
             return new String[0];
@@ -312,6 +284,9 @@ public class WebappLoader extends LifecycleMBeanBase
         return result;
     }
 
+    /**
+     * 获取类加载器加载的url资源路径，转为为字符串返回
+     */
     public String getLoaderRepositoriesString() {
         String repositories[]=getLoaderRepositories();
         StringBuilder sb=new StringBuilder();
@@ -322,20 +297,14 @@ public class WebappLoader extends LifecycleMBeanBase
     }
 
 
-    /**
-     * Classpath, as set in org.apache.catalina.jsp_classpath context
-     * property
-     *
-     * @return The classpath
-     */
+
     public String getClasspath() {
         return classpath;
     }
 
 
     /**
-     * Has the internal repository associated with this Loader been modified,
-     * such that the loaded classes should be reloaded?
+     * 检查类加载器classLoader中已经加载的资源是否有修改/增加/删减
      */
     @Override
     public boolean modified() {
@@ -343,20 +312,7 @@ public class WebappLoader extends LifecycleMBeanBase
     }
 
 
-    /**
-     * Remove a property change listener from this component.
-     *
-     * @param listener The listener to remove
-     */
-    @Override
-    public void removePropertyChangeListener(PropertyChangeListener listener) {
-        support.removePropertyChangeListener(listener);
-    }
 
-
-    /**
-     * Return a String representation of this component.
-     */
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("WebappLoader[");
@@ -368,11 +324,7 @@ public class WebappLoader extends LifecycleMBeanBase
 
 
     /**
-     * Start associated {@link ClassLoader} and implement the requirements
-     * of {@link org.apache.catalina.util.LifecycleBase#startInternal()}.
-     *
-     * @exception LifecycleException if this component detects a fatal error
-     *  that prevents this component from being used
+     * 启动组件模板方法实现
      */
     @Override
     protected void startInternal() throws LifecycleException {
@@ -380,20 +332,21 @@ public class WebappLoader extends LifecycleMBeanBase
         if (log.isDebugEnabled())
             log.debug(sm.getString("webappLoader.starting"));
 
+        /** 如果context组件子组件resources为null,直接返回 **/
         if (context.getResources() == null) {
             log.info("No resources for " + context);
             setState(LifecycleState.STARTING);
             return;
         }
 
-        // Construct a class loader based on our current repositories list
         try {
-
+            /** 创建webAppClassLoader **/
             classLoader = createClassLoader();
+
+            /** 将context组件子组件resources设置给webAppClassLoader属性resources **/
             classLoader.setResources(context.getResources());
             classLoader.setDelegate(this.delegate);
 
-            // Configure our repositories
             setClassPath();
 
             setPermissions();
@@ -422,11 +375,7 @@ public class WebappLoader extends LifecycleMBeanBase
 
 
     /**
-     * Stop associated {@link ClassLoader} and implement the requirements
-     * of {@link org.apache.catalina.util.LifecycleBase#stopInternal()}.
-     *
-     * @exception LifecycleException if this component detects a fatal error
-     *  that prevents this component from being used
+     * 停止组件模板方法实现
      */
     @Override
     protected void stopInternal() throws LifecycleException {
@@ -472,9 +421,7 @@ public class WebappLoader extends LifecycleMBeanBase
 
 
     /**
-     * Process property change events from our associated Context.
-     *
-     * @param event The property change event that has occurred
+     * 作为属性监听器处理属性变更事件
      */
     @Override
     public void propertyChange(PropertyChangeEvent event) {
@@ -560,18 +507,21 @@ public class WebappLoader extends LifecycleMBeanBase
      */
     private void setClassPath() {
 
-        // Validate our current state information
+        /** 如果context为null 直接返回 **/
         if (context == null)
             return;
+
+        /** 如果context.ServletContext为null 直接返回 **/
         ServletContext servletContext = context.getServletContext();
         if (servletContext == null)
             return;
 
         StringBuilder classpath = new StringBuilder();
 
-        // Assemble the class path information from our class loader chain
+        /** 获取WebAppClassLoader **/
         ClassLoader loader = getClassLoader();
 
+        /** 获取WebAppClassLoade父类加载器 **/
         if (delegate && loader != null) {
             // Skip the webapp loader for now as delegation is enabled
             loader = loader.getParent();

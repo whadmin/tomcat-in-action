@@ -33,9 +33,8 @@ import org.xml.sax.Attributes;
 
 
 /**
- * Rule implementation that creates a connector.
+ * 解析<Connector>规则处理器
  */
-
 public class ConnectorCreateRule extends Rule {
 
     private static final Log log = LogFactory.getLog(ConnectorCreateRule.class);
@@ -44,34 +43,38 @@ public class ConnectorCreateRule extends Rule {
 
 
     /**
-     * Process the beginning of this element.
-     *
-     * @param namespace the namespace URI of the matching element, or an
-     *   empty string if the parser is not namespace aware or the element has
-     *   no namespace
-     * @param name the local name if the parser is namespace aware, or just
-     *   the element name otherwise
-     * @param attributes The attribute list for this element
+     * 解析<Server><Service><Connector>回调处理逻辑
      */
     @Override
     public void begin(String namespace, String name, Attributes attributes)
             throws Exception {
+        /** 获取栈顶对象svc **/
         Service svc = (Service)digester.peek();
         Executor ex = null;
+
+        /** 如果<Server><Service><Connector>标签存在executor属性，则从Service组件获取该属性值对应连接池ex**/
         if ( attributes.getValue("executor")!=null ) {
             ex = svc.getExecutor(attributes.getValue("executor"));
         }
+        /** 实例化Connector组件 **/
         Connector con = new Connector(attributes.getValue("protocol"));
         if (ex != null) {
+            /** 使用反射技术将连接池设置给ProtocolHandler组件executor属性  **/
             setExecutor(con, ex);
         }
+
+        /** 获取<Server><Service><Connector>标签sslImplementationName属性 **/
         String sslImplementationName = attributes.getValue("sslImplementationName");
         if (sslImplementationName != null) {
+            /** 使用反射技术将连接池设置给ProtocolHandler组件sslImplementationName属性  **/
             setSSLImplementationName(con, sslImplementationName);
         }
         digester.push(con);
     }
 
+    /**
+     * 使用反射技术将连接池设置给ProtocolHandler组件executor属性
+     */
     private static void setExecutor(Connector con, Executor ex) throws Exception {
         Method m = IntrospectionUtils.findMethod(con.getProtocolHandler().getClass(),"setExecutor",new Class[] {java.util.concurrent.Executor.class});
         if (m!=null) {
@@ -81,6 +84,9 @@ public class ConnectorCreateRule extends Rule {
         }
     }
 
+    /**
+     * 使用反射技术将连接池设置给ProtocolHandler组件sslImplementationName属性
+     */
     private static void setSSLImplementationName(Connector con, String sslImplementationName) throws Exception {
         Method m = IntrospectionUtils.findMethod(con.getProtocolHandler().getClass(),"setSslImplementationName",new Class[] {String.class});
         if (m != null) {
@@ -91,18 +97,10 @@ public class ConnectorCreateRule extends Rule {
     }
 
     /**
-     * Process the end of this element.
-     *
-     * @param namespace the namespace URI of the matching element, or an
-     *   empty string if the parser is not namespace aware or the element has
-     *   no namespace
-     * @param name the local name if the parser is namespace aware, or just
-     *   the element name otherwise
+     * 解析<Server><Service></Connector>回调处理逻辑
      */
     @Override
     public void end(String namespace, String name) throws Exception {
         digester.pop();
     }
-
-
 }

@@ -429,13 +429,13 @@ public class Catalina {
         // 解析<Server><GlobalNamingResources>标签,设置NamingRuleSet作为解析规则组
         digester.addRuleSet(new NamingRuleSet("Server/GlobalNamingResources/"));
 
-        // 解析<Server><Service>标签,设置EngineRuleSet作为解析规则组
+        //设置EngineRuleSet作为解析规则组, 解析<Server><Service>子标签
         digester.addRuleSet(new EngineRuleSet("Server/Service/"));
 
-        // 解析<Server><Service><Engine>标签,设置HostRuleSet作为解析规则组
+        //设置HostRuleSet作为解析规则组.解析<Server><Service><Engine>子标签
         digester.addRuleSet(new HostRuleSet("Server/Service/Engine/"));
 
-        // 解析<Server><Service><Engine><Host>标签,设置ContextRuleSet作为解析规则组
+        //设置ContextRuleSet作为解析规则组，解析<Server><Service><Engine><Host>子标签,
         digester.addRuleSet(new ContextRuleSet("Server/Service/Engine/Host/"));
 
         // 解析<Server><Service><Engine><Host>标签,设置ClusterRuleSet作为解析规则组

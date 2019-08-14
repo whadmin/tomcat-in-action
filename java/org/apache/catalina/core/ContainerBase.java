@@ -118,7 +118,7 @@ public abstract class ContainerBase extends LifecycleMBeanBase
     protected final List<ContainerListener> listeners = new CopyOnWriteArrayList<>();
 
     /**
-     * log
+     * log组件
      */
     protected Log logger = null;
 
@@ -130,7 +130,7 @@ public abstract class ContainerBase extends LifecycleMBeanBase
 
     //关联子组件
     /**
-     * 容器组件集群对象cluster
+     * 当前容器组件对应cluster组件
      */
     protected Cluster cluster = null;
 
@@ -200,7 +200,6 @@ public abstract class ContainerBase extends LifecycleMBeanBase
 
 
 
-     //定时任务相关属性
     /**
      * 当前容器添加子容器组件时，是否自动启动子容器
      */
@@ -338,13 +337,13 @@ public abstract class ContainerBase extends LifecycleMBeanBase
         Lock writeLock = clusterLock.writeLock();
         writeLock.lock();
         try {
-            /**  获取当前组件原始Cluster组件对象 **/
+            /**  获取当前组件原始Cluster组件对象引用设置给oldCluster **/
             oldCluster = this.cluster;
             if (oldCluster == cluster)
                 return;
             this.cluster = cluster;
 
-            /**  如果Cluster组件还在运行则停止Cluster组件 **/
+            /**  如果当前组件还在运行，则停止oldCluster组件 **/
             if (getState().isAvailable() && (oldCluster != null) &&
                 (oldCluster instanceof Lifecycle)) {
                 try {
@@ -354,11 +353,11 @@ public abstract class ContainerBase extends LifecycleMBeanBase
                 }
             }
 
-            /** 将设置cluster组件和当前对象反相关联 **/
+            /** 将新设置cluster组件和当前容器组件对象反相关联 **/
             if (cluster != null)
                 cluster.setContainer(this);
 
-            /** 如果当前组件处于运行状态，启动设置cluster组件 **/
+            /** 如果当前组件处于运行状态，启动新设置cluster组件 **/
             if (getState().isAvailable() && (cluster != null) &&
                 (cluster instanceof Lifecycle)) {
                 try {
@@ -476,17 +475,16 @@ public abstract class ContainerBase extends LifecycleMBeanBase
 
     @Override
     public void setRealm(Realm realm) {
-
         Lock l = realmLock.writeLock();
         l.lock();
         try {
-            /**  获取当前组件原始Realm组件对象 **/
+            /**  获取当前组件绑定的Realm组件对象引用设置给oldRealm **/
             Realm oldRealm = this.realm;
             if (oldRealm == realm)
                 return;
             this.realm = realm;
 
-            /**  如果Realm组件还在运行则停止Cluster组件 **/
+            /**  如果当前组件处于运行状态,则停止oldRealm组件 **/
             if (getState().isAvailable() && (oldRealm != null) &&
                 (oldRealm instanceof Lifecycle)) {
                 try {
@@ -496,11 +494,11 @@ public abstract class ContainerBase extends LifecycleMBeanBase
                 }
             }
 
-            /** 将设置Realm组件和当前对象反相关联 **/
+            /** 将新设置Realm组件和当前组件对象反相关联 **/
             if (realm != null)
                 realm.setContainer(this);
 
-            /** 如果当前组件处于运行状态，启动设置Realm组件 **/
+            /** 如果当前组件处于运行状态，启动新设置realm组件 **/
             if (getState().isAvailable() && (realm != null) &&
                 (realm instanceof Lifecycle)) {
                 try {
@@ -515,7 +513,6 @@ public abstract class ContainerBase extends LifecycleMBeanBase
         } finally {
             l.unlock();
         }
-
     }
 
 
@@ -865,7 +862,7 @@ public abstract class ContainerBase extends LifecycleMBeanBase
 
     /**
      * 使用AccessLog组件打印日志，
-     * 如果当前组件不存在AccessLog组件则使用父类AccessLog组件
+     * 如果当前容器组件存在父容器组件则使用父容器组件AccessLog组件打印日志
      */
     @Override
     public void logAccess(Request request, Response response, long time,
@@ -887,8 +884,9 @@ public abstract class ContainerBase extends LifecycleMBeanBase
 
     /**
      * 获取AccessLog组件时
-     * 如果accessLogScanComplete为false
-     * 对AccessLog组件初始化(扫描pipeline组件中类型为AccessLog的Value，添加到AccessLog组件)
+     * 如果accessLogScanComplete为false，需要对AccessLog组件实例化，
+     * 其实现类为AccessLogAdapter适配器，其内部维护一个类型为AccessLog的数组，
+     * 实例化同步扫描Pipeline组件中类型为AccessLog的阀门，添加到AccessLogAdapter适配器类型为AccessLog的数组中
      */
     @Override
     public AccessLog getAccessLog() {
@@ -927,7 +925,7 @@ public abstract class ContainerBase extends LifecycleMBeanBase
 
 
     /**
-     * 容器默认定时任务处理逻辑
+     * 容器默认周期性任务处理调用方法
      */
     @Override
     public void backgroundProcess() {
