@@ -27,88 +27,50 @@ import org.xml.sax.Attributes;
 
 
 /**
- * Rule that creates a new {@link LifecycleListener} and associates it with the
- * top object on the stack which must implement {@link Container}. The
- * implementation class to be used is determined by:
- * <ol>
- * <li>Does the top element on the stack specify an implementation class using
- *     the attribute specified when this rule was created?</li>
- * <li>Does the parent {@link Container} of the {@link Container} on the top of
- *     the stack specify an implementation class using the attribute specified
- *     when this rule was created?</li>
- * <li>Use the default implementation class specified when this rule was
- *     created.</li>
- * </ol>
+ *  解析标签给栈顶对象添加一个生命周期监听器
  */
 public class LifecycleListenerRule extends Rule {
 
-
-    // ----------------------------------------------------------- Constructors
-
-
-    /**
-     * Construct a new instance of this Rule.
-     *
-     * @param listenerClass Default name of the LifecycleListener
-     *  implementation class to be created
-     * @param attributeName Name of the attribute that optionally
-     *  includes an override name of the LifecycleListener class
-     */
     public LifecycleListenerRule(String listenerClass, String attributeName) {
-
         this.listenerClass = listenerClass;
         this.attributeName = attributeName;
-
     }
-
-
-    // ----------------------------------------------------- Instance Variables
-
-
     /**
-     * The attribute name of an attribute that can override the
-     * implementation class name.
+     * 标准中指定属性，用来设置监听器处理类
      */
     private final String attributeName;
 
-
     /**
-     * The name of the <code>LifecycleListener</code> implementation class.
+     * 默认监听器处理类
      */
     private final String listenerClass;
 
-
-    // --------------------------------------------------------- Public Methods
-
-
-    /**
-     * Handle the beginning of an XML element.
-     *
-     * @param attributes The attributes of this element
-     *
-     * @exception Exception if a processing error occurs
-     */
     @Override
     public void begin(String namespace, String name, Attributes attributes)
         throws Exception {
 
+        /** 获取栈顶原始对象 **/
         Container c = (Container) digester.peek();
+
+        /** 获取次栈顶元素对象 **/
         Container p = null;
         Object obj = digester.peek(1);
+
+        /** 如果栈顶元素对象是容器设置给p **/
         if (obj instanceof Container) {
             p = (Container) obj;
         }
 
         String className = null;
 
-        // Check the container for the specified attribute
+        /** 获取标签attributeName值赋值给className **/
         if (attributeName != null) {
             String value = attributes.getValue(attributeName);
             if (value != null)
                 className = value;
         }
 
-        // Check the container's parent for the specified attribute
+        /** 获取次栈顶对象attributeName属性值赋值给className **/
         if (p != null && className == null) {
             String configClass =
                 (String) IntrospectionUtils.getProperty(p, attributeName);
@@ -117,18 +79,15 @@ public class LifecycleListenerRule extends Rule {
             }
         }
 
-        // Use the default
+        /** 如果className == null使用listenerClass作为className默认值**/
         if (className == null) {
             className = listenerClass;
         }
 
-        // Instantiate a new LifecycleListener implementation object
+
+        /** 实例化className添加栈顶对象生命周期监听器列表中*/
         Class<?> clazz = Class.forName(className);
         LifecycleListener listener = (LifecycleListener) clazz.getConstructor().newInstance();
-
-        // Add this LifecycleListener to our associated component
         c.addLifecycleListener(listener);
     }
-
-
 }

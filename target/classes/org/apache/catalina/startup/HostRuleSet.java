@@ -83,16 +83,27 @@ public class HostRuleSet extends RuleSetBase {
     @Override
     public void addRuleInstances(Digester digester) {
 
+        //解析<Server><Service><Engine><Host>标签
+        /** 解析<Host>标签实例化StandardHost对象，并push到操作栈中 **/
         digester.addObjectCreate(prefix + "Host",
                                  "org.apache.catalina.core.StandardHost",
                                  "className");
+
+        /** 解析<Host>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties(prefix + "Host");
+
+
+        /** 解析<Host>标签，使用CopyParentClassLoaderRule规则，负责调用次栈顶对象getParentClassLoader获取父类加载，设置到栈顶对象parentClassLoader属性上 **/
         digester.addRule(prefix + "Host",
                          new CopyParentClassLoaderRule());
+
+        /** 解析<Host>标签，使用LifecycleListenerRule规则，负责给栈顶对象添加一个生命周期监听器. 默认为hostConfigClass，或者在标签指定org.apache.catalina.startup.HostConfig属性**/
         digester.addRule(prefix + "Host",
                          new LifecycleListenerRule
                          ("org.apache.catalina.startup.HostConfig",
                           "hostConfigClass"));
+
+        /** 解析<Host>标签将操作栈栈顶对象作为次栈顶对象StandardService.addChild方法调用的参数，即将实例化StandardHost对象添加StandardServer.child子容器列表属性中**/
         digester.addSetNext(prefix + "Host",
                             "addChild",
                             "org.apache.catalina.Container");

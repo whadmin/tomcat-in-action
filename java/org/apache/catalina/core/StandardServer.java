@@ -163,7 +163,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
 
 
     /**
-     * Tomcat 按照目录文件
+     * Tomcat 安装目录文件
      */
     private File catalinaHome = null;
 

@@ -136,35 +136,21 @@ import org.apache.tomcat.util.scan.StandardJarScanner;
 import org.apache.tomcat.util.security.PrivilegedGetTccl;
 import org.apache.tomcat.util.security.PrivilegedSetTccl;
 
-/**
- * Standard implementation of the <b>Context</b> interface.  Each
- * child container must be a Wrapper implementation to process the
- * requests directed to a particular servlet.
- *
- * @author Craig R. McClanahan
- * @author Remy Maucherat
- */
+
 public class StandardContext extends ContainerBase
         implements Context, NotificationEmitter {
 
     private static final Log log = LogFactory.getLog(StandardContext.class);
 
-
     // ----------------------------------------------------------- Constructors
-
-
     /**
-     * Create a new StandardContext component with the default basic Valve.
+     * 实例化StandardContext，并初始化pipeline组件Basic
      */
     public StandardContext() {
-
         super();
         pipeline.setBasic(new StandardContextValve());
         broadcaster = new NotificationBroadcasterSupport();
-        // Set defaults
         if (!Globals.STRICT_SERVLET_COMPLIANCE) {
-            // Strict servlet compliance requires all extension mapped servlets
-            // to be checked against welcome files
             resourceOnlyServlets.add("jsp");
         }
     }
@@ -173,9 +159,7 @@ public class StandardContext extends ContainerBase
     // ----------------------------------------------------- Instance Variables
 
     /**
-     * Allow multipart/form-data requests to be parsed even when the
-     * target servlet doesn't specify @MultipartConfig or have a
-     * &lt;multipart-config&gt; element.
+     * 即使目标servlet未指定@MultipartConfig或具有<multipart-config>元素，也允许解析multipart / form-data请求。
      */
     protected boolean allowCasualMultipartParsing = false;
 
@@ -257,7 +241,7 @@ public class StandardContext extends ContainerBase
     private NotificationBroadcasterSupport broadcaster = null;
 
     /**
-     * The Locale to character set mapper for this application.
+     * 字符集映射子组件
      */
     private CharsetMapper charsetMapper = null;
 
@@ -329,8 +313,7 @@ public class StandardContext extends ContainerBase
 
 
     /**
-     * The "follow standard delegation model" flag that will be used to
-     * configure our ClassLoader.
+     * 将用于配置我们的类加载器
      */
     private boolean delegate = false;
 
@@ -401,7 +384,7 @@ public class StandardContext extends ContainerBase
 
 
     /**
-     * The Loader implementation with which this Container is associated.
+     * 应用程序资源子组件Loader
      */
     private Loader loader = null;
     private final ReadWriteLock loaderLock = new ReentrantReadWriteLock();
@@ -617,6 +600,10 @@ public class StandardContext extends ContainerBase
     private String namingContextName = null;
 
 
+    /**
+     * WebResourceRoot 子组件
+     * WebResouceRoot维护了Web应用所以的资源集合（Class文件、Jar包以及其他资源文件），主要用于类加载器和按照路径查找资源文件。
+     */
     private WebResourceRoot resources;
     private final ReadWriteLock resourcesLock = new ReentrantReadWriteLock();
 
@@ -800,6 +787,9 @@ public class StandardContext extends ContainerBase
 
     private final Object namingToken = new Object();
 
+    /**
+     * Cookie处理器子组件
+     */
     private CookieProcessor cookieProcessor;
 
     private boolean validateClientProvidedNewSessionId = true;
@@ -4995,16 +4985,15 @@ public class StandardContext extends ContainerBase
         setConfigured(false);
         boolean ok = true;
 
-        // Currently this is effectively a NO-OP but needs to be called to
-        // ensure the NamingResources follows the correct lifecycle
+        /** 启动子组件  namingResources **/
         if (namingResources != null) {
             namingResources.start();
         }
 
-        // Post work directory
+        /** 初始化当前context组件Context临时工作目录,默认为$CATALINA-BASE/work/<Engine名称>/<Host名称>/<Context名称>。**/
         postWorkDirectory();
 
-        // Add missing components as necessary
+        /** 初始化当前context组件子组件WebResouceRoot,并设置到resources属性 **/
         if (getResources() == null) {   // (1) Required by Loader
             if (log.isDebugEnabled())
                 log.debug("Configuring default Resources");
@@ -5016,25 +5005,29 @@ public class StandardContext extends ContainerBase
                 ok = false;
             }
         }
+
+        /** 启动 WebResouceRoot子组件 **/
         if (ok) {
             resourcesStart();
         }
 
+        /** 初始化当前context组件子组件loader,并设置到loader属性 **/
         if (getLoader() == null) {
             WebappLoader webappLoader = new WebappLoader(getParentClassLoader());
             webappLoader.setDelegate(getDelegate());
             setLoader(webappLoader);
         }
 
-        // An explicit cookie processor hasn't been specified; use the default
+        /** 初始化并设置Cookie处理器子组件 **/
         if (cookieProcessor == null) {
             cookieProcessor = new Rfc6265CookieProcessor();
         }
 
-        // Initialize character set mapper
+        /** 初始化并设置字符集映射子组件 **/
         getCharsetMapper();
 
-        // Validate required extensions
+
+        /** web应用的依赖检测。 **/
         boolean dependencyCheck = true;
         try {
             dependencyCheck = ExtensionValidator.validateApplication
@@ -5043,13 +5036,12 @@ public class StandardContext extends ContainerBase
             log.error(sm.getString("standardContext.extensionValidationError"), ioe);
             dependencyCheck = false;
         }
-
         if (!dependencyCheck) {
-            // do not make application available if dependency check fails
             ok = false;
         }
 
-        // Reading the "catalina.useNaming" environment variable
+
+        /** 给context组件注册NamingContextListener监听器，并设置给属性namingContextListener **/
         String useNamingProperty = System.getProperty("catalina.useNaming");
         if ((useNamingProperty != null)
             && (useNamingProperty.equals("false"))) {
@@ -5066,7 +5058,6 @@ public class StandardContext extends ContainerBase
             }
         }
 
-        // Standard container startup
         if (log.isDebugEnabled())
             log.debug("Processing standard container startup");
 
@@ -5602,6 +5593,7 @@ public class StandardContext extends ContainerBase
         if (!getState().isAvailable())
             return;
 
+        //WebappLoader 周期性的检查 WEB-INF/classes 和 WEB-INF/lib 目录下的类文件
         Loader loader = getLoader();
         if (loader != null) {
             try {
@@ -5611,6 +5603,8 @@ public class StandardContext extends ContainerBase
                         "standardContext.backgroundProcess.loader", loader), e);
             }
         }
+
+        //Session 管理器周期性的检查是否有过期的 Session
         Manager manager = getManager();
         if (manager != null) {
             try {
@@ -5621,6 +5615,8 @@ public class StandardContext extends ContainerBase
                         e);
             }
         }
+
+        // 周期性的检查静态资源是否有变化
         WebResourceRoot resources = getResources();
         if (resources != null) {
             try {

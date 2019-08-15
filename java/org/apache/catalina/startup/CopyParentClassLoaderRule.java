@@ -26,37 +26,12 @@ import org.apache.tomcat.util.digester.Rule;
 import org.xml.sax.Attributes;
 
 
-/**
- * <p>Rule that copies the <code>parentClassLoader</code> property from the
- * next-to-top item on the stack (which must be a <code>Container</code>)
- * to the top item on the stack (which must also be a
- * <code>Container</code>).</p>
- *
- * @author Craig R. McClanahan
- */
 public class CopyParentClassLoaderRule extends Rule {
 
 
-    // ----------------------------------------------------------- Constructors
-
-
-    /**
-     * Construct a new instance of this Rule.
-     */
     public CopyParentClassLoaderRule() {
     }
 
-
-    // --------------------------------------------------------- Public Methods
-
-
-    /**
-     * Handle the beginning of an XML element.
-     *
-     * @param attributes The attributes of this element
-     *
-     * @exception Exception if a processing error occurs
-     */
     @Override
     public void begin(String namespace, String name, Attributes attributes)
         throws Exception {
@@ -72,6 +47,4 @@ public class CopyParentClassLoaderRule extends Rule {
         child.setParentClassLoader(classLoader);
 
     }
-
-
 }

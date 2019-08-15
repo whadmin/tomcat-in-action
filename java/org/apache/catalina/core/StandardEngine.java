@@ -55,18 +55,17 @@ public class StandardEngine extends ContainerBase implements Engine {
      * 实例化StandardEngine
      */
     public StandardEngine() {
-
         super();
+        /** 设置StandardEngineValve作为pipeline组件尾Value 阀门 **/
         pipeline.setBasic(new StandardEngineValve());
-        /* Set the jmvRoute using the system property jvmRoute */
+        /** 从系统属性jvmRoute值，设置 Tomcat实例的JVM路由ID **/
         try {
             setJvmRoute(System.getProperty("jvmRoute"));
         } catch(Exception ex) {
             log.warn(sm.getString("standardEngine.jvmRouteFail"));
         }
-        // By default, the engine will hold the reloading thread
+        /** 设置周期任务执行间隔事件 **/
         backgroundProcessorDelay = 10;
-
     }
 
 
@@ -189,8 +188,8 @@ public class StandardEngine extends ContainerBase implements Engine {
     /**
      * 使用AccessLog组件打印日志，
      *
-     * 如果defaultAccessLog不存在则初始化defaultAccessLog,初始化从子容器获取AccessLog组件
-     * 并创建一个AccessLogListener监听器监听当前容器以及子容器容器事件和生命周期事件
+     * 如果useDefault=true,使用defaultAccessLog属性中保存AccessLog打印日志
+     * 如果defaultAccessLog未初始化AccessLog，则尝试从子容器host,context获取绑定的AccessLog组件设置到defaultAccessLog，使用新设置AccessLog组件打印日志
      */
     @Override
     public void logAccess(Request request, Response response, long time,
@@ -205,12 +204,13 @@ public class StandardEngine extends ContainerBase implements Engine {
 
         if (!logged && useDefault) {
             AccessLog newDefaultAccessLog = defaultAccessLog.get();
+            /** 如果newDefaultAccessLog未初始化 **/
             if (newDefaultAccessLog == null) {
-                // If we reached this point, this Engine can't have an AccessLog
-                // Look in the defaultHost
+                /** 获取默认host子容器组件 **/
                 Host host = (Host) findChild(getDefaultHost());
                 Context context = null;
                 if (host != null && host.getState().isAvailable()) {
+                    /** 获取host容器绑定的AccessLog 设置给 newDefaultAccessLog**/
                     newDefaultAccessLog = host.getAccessLog();
 
                     if (newDefaultAccessLog != null) {
@@ -221,7 +221,7 @@ public class StandardEngine extends ContainerBase implements Engine {
                             l.install();
                         }
                     } else {
-                        // Try the ROOT context of default host
+                        /** 获取context容器绑定的AccessLog 设置给 newDefaultAccessLog**/
                         context = (Context) host.findChild("");
                         if (context != null &&
                                 context.getState().isAvailable()) {
@@ -229,6 +229,7 @@ public class StandardEngine extends ContainerBase implements Engine {
                             if (newDefaultAccessLog != null) {
                                 if (defaultAccessLog.compareAndSet(null,
                                         newDefaultAccessLog)) {
+                                    /** 并设置AccessLogListener 作为当前容器对象engine，和子容器host的监听器。 **/
                                     AccessLogListener l = new AccessLogListener(
                                             this, null, context);
                                     l.install();
@@ -238,17 +239,19 @@ public class StandardEngine extends ContainerBase implements Engine {
                     }
                 }
 
+                /** 如果无法从子容器获取AccessLog，默认使用NoopAccessLog作为默认的AccessLog **/
                 if (newDefaultAccessLog == null) {
                     newDefaultAccessLog = new NoopAccessLog();
                     if (defaultAccessLog.compareAndSet(null,
                             newDefaultAccessLog)) {
+                        /** 并设置AccessLogListener 作为当前容器对象engine，和子容器host的监听器。 **/
                         AccessLogListener l = new AccessLogListener(this, host,
                                 context);
                         l.install();
                     }
                 }
             }
-
+            /** 使用newDefaultAccessLog打印日志 **/
             newDefaultAccessLog.log(request, response, time);
         }
     }
@@ -383,9 +386,6 @@ public class StandardEngine extends ContainerBase implements Engine {
             if (Lifecycle.AFTER_START_EVENT.equals(type) ||
                     Lifecycle.BEFORE_STOP_EVENT.equals(type) ||
                     Lifecycle.BEFORE_DESTROY_EVENT.equals(type)) {
-                // Container is being started/stopped/removed
-                // Force re-calculation and disable listener since it won't
-                // be re-used
                 engine.defaultAccessLog.set(null);
                 uninstall();
             }
@@ -395,8 +395,6 @@ public class StandardEngine extends ContainerBase implements Engine {
         public void propertyChange(PropertyChangeEvent evt) {
             if (disabled) return;
             if ("defaultHost".equals(evt.getPropertyName())) {
-                // Force re-calculation and disable listener since it won't
-                // be re-used
                 engine.defaultAccessLog.set(null);
                 uninstall();
             }
@@ -404,13 +402,10 @@ public class StandardEngine extends ContainerBase implements Engine {
 
         @Override
         public void containerEvent(ContainerEvent event) {
-            // Only useful for hosts
             if (disabled) return;
             if (Container.ADD_CHILD_EVENT.equals(event.getType())) {
                 Context context = (Context) event.getData();
                 if ("".equals(context.getPath())) {
-                    // Force re-calculation and disable listener since it won't
-                    // be re-used
                     engine.defaultAccessLog.set(null);
                     uninstall();
                 }

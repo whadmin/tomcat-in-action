@@ -27,50 +27,22 @@ import org.apache.catalina.connector.Response;
 import org.apache.catalina.valves.ValveBase;
 import org.apache.tomcat.util.res.StringManager;
 
-/**
- * Valve that implements the default basic behavior for the
- * <code>StandardEngine</code> container implementation.
- * <p>
- * <b>USAGE CONSTRAINT</b>:  This implementation is likely to be useful only
- * when processing HTTP requests.
- *
- * @author Craig R. McClanahan
- */
+
 final class StandardEngineValve extends ValveBase {
 
-    //------------------------------------------------------ Constructor
     public StandardEngineValve() {
         super(true);
     }
 
-
-    // ----------------------------------------------------- Instance Variables
-
-    /**
-     * The string manager for this package.
-     */
     private static final StringManager sm =
         StringManager.getManager(Constants.Package);
 
 
-    // --------------------------------------------------------- Public Methods
-
-    /**
-     * Select the appropriate child Host to process this request,
-     * based on the requested server name.  If no matching Host can
-     * be found, return an appropriate HTTP error.
-     *
-     * @param request Request to be processed
-     * @param response Response to be produced
-     *
-     * @exception IOException if an input/output error occurred
-     * @exception ServletException if a servlet error occurred
-     */
     @Override
     public final void invoke(Request request, Response response)
         throws IOException, ServletException {
 
-        // Select the Host to be used for this Request
+        /** 获取host子容器组件 **/
         Host host = request.getHost();
         if (host == null) {
             response.sendError
@@ -79,12 +51,15 @@ final class StandardEngineValve extends ValveBase {
                               request.getServerName()));
             return;
         }
+
+        /** 如果当前请求支持异步，则检查当前容器组件Pipeline管道种所有Value阀是否都支持异步，如果不是则重置为false **/
         if (request.isAsyncSupported()) {
+            /** getPipeline().isAsyncSupported() 如果当前容器组件Pipeline管道种所有Value阀都支持异步则返回true**/
+            /** 设置当前请求是否支持异步，需要当前容器Pipeline管道种所有Value阀都支持异步 **/
             request.setAsyncSupported(host.getPipeline().isAsyncSupported());
         }
 
-        // Ask this Host to process this request
+        /** 调用host容器的Pipeline管道的第一个Value阀执行 **/
         host.getPipeline().getFirst().invoke(request, response);
-
     }
 }

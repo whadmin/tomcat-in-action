@@ -242,9 +242,7 @@ public class StandardPipeline extends LifecycleBase
      */
     @Override
     public Valve getBasic() {
-
         return (this.basic);
-
     }
 
 
@@ -423,7 +421,6 @@ public class StandardPipeline extends LifecycleBase
      */
     @Override
     public void removeValve(Valve valve) {
-
         Valve current;
         if(first == valve) {
             first = first.getNext();
@@ -445,7 +442,6 @@ public class StandardPipeline extends LifecycleBase
             ((Contained) valve).setContainer(null);
 
         if (valve instanceof Lifecycle) {
-            // Stop this valve if necessary
             if (getState().isAvailable()) {
                 try {
                     ((Lifecycle) valve).stop();
@@ -459,7 +455,6 @@ public class StandardPipeline extends LifecycleBase
                 log.error("StandardPipeline.removeValve: destroy: ", e);
             }
         }
-
         container.fireContainerEvent(Container.REMOVE_VALVE_EVENT, valve);
     }
 
@@ -469,7 +464,6 @@ public class StandardPipeline extends LifecycleBase
         if (first != null) {
             return first;
         }
-
         return basic;
     }
 }

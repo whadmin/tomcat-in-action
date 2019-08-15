@@ -84,130 +84,107 @@ public class HostConfig implements LifecycleListener {
     private static final Log log = LogFactory.getLog(HostConfig.class);
 
     /**
-     * The string resources for this package.
+     * 管理打印日志模板组件
      */
     protected static final StringManager sm = StringManager.getManager(HostConfig.class);
 
     /**
-     * The resolution, in milliseconds, of file modification times.
+     * 文件修改时间的分辨率
      */
     protected static final long FILE_MODIFICATION_RESOLUTION_MS = 1000;
 
 
-    // ----------------------------------------------------- Instance Variables
-
     /**
-     * The Java class name of the Context implementation we should use.
+     * 组件Context实现类
      */
     protected String contextClass = "org.apache.catalina.core.StandardContext";
 
 
     /**
-     * The Host we are associated with.
+     * 关联监听host组件
      */
     protected Host host = null;
 
 
     /**
-     * The JMX ObjectName of this component.
+     * 当前对象HostConfig 注册到JMX ObjectName
      */
     protected ObjectName oname = null;
 
 
     /**
-     * Should we deploy XML Context config files packaged with WAR files and
-     * directories?
+     * 是否要禁止应用程序中定义/META-INF/context.xml
      */
     protected boolean deployXML = false;
 
 
     /**
-     * Should XML files be copied to
-     * $CATALINA_BASE/conf/&lt;engine&gt;/&lt;host&gt; by default when
-     * a web application is deployed?
+     * 如果在应用程序中定义了/META-INF/context.xml，是否要拷贝到$catalinaBase/xmlBase目录下
      */
     protected boolean copyXML = false;
 
 
     /**
-     * Should we unpack WAR files when auto-deploying applications in the
-     * <code>appBase</code> directory?
+     * 是否解压war包种应用程序在执行，默认为true
      */
     protected boolean unpackWARs = false;
 
 
     /**
-     * Map of deployed applications.
+     * deployed Map存储已经部署context上下文。key中存储context的名称，value中存储DeployedApplication类对象
+     * DeployedApplication类用来描述部署context相关信息
      */
     protected final Map<String, DeployedApplication> deployed =
             new ConcurrentHashMap<>();
 
 
     /**
-     * List of applications which are being serviced, and shouldn't be
-     * deployed/undeployed/redeployed at the moment.
+     * 存储已部署/未部署/重新部署context名称
      */
     protected final ArrayList<String> serviced = new ArrayList<>();
 
 
     /**
-     * The <code>Digester</code> instance used to parse context descriptors.
+     * digester对象，负责管理解析context标签规则
      */
     protected Digester digester = createDigester(contextClass);
+
+
+    /**
+     * digester使用时同步锁对象
+     */
     private final Object digesterLock = new Object();
 
     /**
-     * The list of Wars in the appBase to be ignored because they are invalid
-     * (e.g. contain /../ sequences).
+     * 存储在部署应该忽略war包应用程序。
      */
     protected final Set<String> invalidWars = new HashSet<>();
 
     // ------------------------------------------------------------- Properties
 
 
-    /**
-     * @return the Context implementation class name.
-     */
     public String getContextClass() {
-
         return (this.contextClass);
-
     }
 
 
-    /**
-     * Set the Context implementation class name.
-     *
-     * @param contextClass The new Context implementation class name.
-     */
     public void setContextClass(String contextClass) {
-
         String oldContextClass = this.contextClass;
         this.contextClass = contextClass;
-
         if (!oldContextClass.equals(contextClass)) {
             synchronized (digesterLock) {
+                /** 重新创建digester **/
                 digester = createDigester(getContextClass());
             }
         }
     }
 
 
-    /**
-     * @return the deploy XML config file flag for this component.
-     */
     public boolean isDeployXML() {
-
         return (this.deployXML);
-
     }
 
 
-    /**
-     * Set the deploy XML config file flag for this component.
-     *
-     * @param deployXML The new deploy XML flag
-     */
     public void setDeployXML(boolean deployXML) {
         this.deployXML = deployXML;
     }
@@ -240,47 +217,23 @@ public class HostConfig implements LifecycleListener {
     }
 
 
-    /**
-     * @return the copy XML config file flag for this component.
-     */
     public boolean isCopyXML() {
-
         return (this.copyXML);
-
     }
 
 
-    /**
-     * Set the copy XML config file flag for this component.
-     *
-     * @param copyXML The new copy XML flag
-     */
     public void setCopyXML(boolean copyXML) {
-
         this.copyXML= copyXML;
-
     }
 
 
-    /**
-     * @return the unpack WARs flag.
-     */
     public boolean isUnpackWARs() {
-
         return (this.unpackWARs);
-
     }
 
 
-    /**
-     * Set the unpack WARs flag.
-     *
-     * @param unpackWARs The new unpack WARs flag
-     */
     public void setUnpackWARs(boolean unpackWARs) {
-
         this.unpackWARs = unpackWARs;
-
     }
 
 
@@ -288,14 +241,12 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Process the START event for an associated Host.
-     *
-     * @param event The lifecycle event that has occurred
+     * 监听host组件生命周期时间
      */
     @Override
     public void lifecycleEvent(LifecycleEvent event) {
 
-        // Identify the host we are associated with
+        /**  获取host组件配置属性设置当前对象对应属性中  **/
         try {
             host = (Host) event.getLifecycle();
             if (host instanceof StandardHost) {
@@ -309,7 +260,7 @@ public class HostConfig implements LifecycleListener {
             return;
         }
 
-        // Process the event that has occurred
+        /** 处理相应的host组件生命周期事件 **/
         if (event.getType().equals(Lifecycle.PERIODIC_EVENT)) {
             check();
         } else if (event.getType().equals(Lifecycle.BEFORE_START_EVENT)) {
@@ -323,8 +274,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Add a serviced application to the list.
-     * @param name the context name
+     * 向server列表中添加context名称
      */
     public synchronized void addServiced(String name) {
         serviced.add(name);
@@ -332,9 +282,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Is application serviced ?
-     * @param name the context name
-     * @return state of the application
+     * server列表中是否包含指定context名称
      */
     public synchronized boolean isServiced(String name) {
         return (serviced.contains(name));
@@ -342,8 +290,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Removed a serviced application from the list.
-     * @param name the context name
+     * 向server列表中删除指定context名称
      */
     public synchronized void removeServiced(String name) {
         serviced.remove(name);
@@ -351,28 +298,19 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Get the instant where an application was deployed.
-     * @param name the context name
-     * @return 0L if no application with that name is deployed, or the instant
-     *  on which the application was deployed
+     * 获取指定context部署的时间
      */
     public long getDeploymentTime(String name) {
         DeployedApplication app = deployed.get(name);
         if (app == null) {
             return 0L;
         }
-
         return app.timestamp;
     }
 
 
     /**
-     * Has the specified application been deployed? Note applications defined
-     * in server.xml will not have been deployed.
-     * @param name the context name
-     * @return <code>true</code> if the application has been deployed and
-     *  <code>false</code> if the application has not been deployed or does not
-     *  exist
+     * 指定context是否已部署
      */
     public boolean isDeployed(String name) {
         return deployed.containsKey(name);
@@ -383,10 +321,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Create the digester which will be used to parse context config files.
-     * @param contextClassName The class which will be used to create the
-     *  context instance
-     * @return the digester
+     * 创建Digester对象，负责管理解析context标签规则
      */
     protected static Digester createDigester(String contextClassName) {
         Digester digester = new Digester();
@@ -399,6 +334,10 @@ public class HostConfig implements LifecycleListener {
         return (digester);
     }
 
+
+    /**
+     * 获取指定路径文件对象，返回CatalinaBase/path
+     */
     protected File returnCanonicalPath(String path) {
         File file = new File(path);
         if (!file.isAbsolute())
@@ -412,9 +351,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Get the name of the configBase.
-     * For use with JMX management.
-     * @return the config base
+     * 获取配置文件对象绝对路径
      */
     public String getConfigBaseName() {
         return host.getConfigBaseFile().getAbsolutePath();
@@ -422,31 +359,27 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Deploy applications for any directories or WAR files that are found
-     * in our "application root" directory.
+     * 扫描$catalinaBase/xmlBase目录以及appBase目录下应用程序/静态资源部署host
      */
     protected void deployApps() {
-
+        /** 获取tomcat存放web应用程序的目录文件对象  **/
         File appBase = host.getAppBaseFile();
+        /** 获取当前host文件配置文件对象 默认情况下全路径为$catalinaBase/xmlBase**/
         File configBase = host.getConfigBaseFile();
+        /** 使用host容器组件deployIgnore正则表达式过滤appBase子文件**/
         String[] filteredAppPaths = filterAppPaths(appBase.list());
-        // Deploy XML descriptors from configBase
-        deployDescriptors(configBase, configBase.list());
-        // Deploy WARs
-        deployWARs(appBase, filteredAppPaths);
-        // Deploy expanded folders
-        deployDirectories(appBase, filteredAppPaths);
 
+        /** 将存放$catalinaBase/xmlBase目录xml文件表示静态资源文件部署到host**/
+        deployDescriptors(configBase, configBase.list());
+        /** 部署存放appBase目录下web应用程序 **/
+        deployWARs(appBase, filteredAppPaths);
+        /** 部署存放appBase目录下静态资源文件 **/
+        deployDirectories(appBase, filteredAppPaths);
     }
 
 
     /**
-     * Filter the list of application file paths to remove those that match
-     * the regular expression defined by {@link Host#getDeployIgnore()}.
-     *
-     * @param unfilteredAppPaths    The list of application paths to filter
-     *
-     * @return  The filtered list of application paths
+     * 使用host容器组件deployIgnore正则表达式过滤tomcat存放web应用程序的目录子文件
      */
     protected String[] filterAppPaths(String[] unfilteredAppPaths) {
         Pattern filter = host.getDeployIgnorePattern();
@@ -475,9 +408,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Deploy applications for any directories or WAR files that are found
-     * in our "application root" directory.
-     * @param name The context name which should be deployed
+     * 将指定应用程序和静态资源部署到Host
      */
     protected void deployApps(String name) {
 
@@ -490,38 +421,41 @@ public class HostConfig implements LifecycleListener {
             return;
         }
 
-        // Deploy XML descriptor from configBase
+        /** 判断$catalinaBase/xmlBase目录是否存在baseName + ".xml"文件 **/
         File xml = new File(configBase, baseName + ".xml");
         if (xml.exists()) {
+            /** 将$catalinaBase/xmlBase/baseName.xml文件表示的静态资源部署到host **/
             deployDescriptor(cn, xml);
             return;
         }
-        // Deploy WAR
+        /** 判断appBase目录是否存在baseName + ".war"文件 **/
         File war = new File(appBase, baseName + ".war");
         if (war.exists()) {
+            /** 将appBase/baseName.war文件表示的应用程序部署到host **/
             deployWAR(cn, war);
             return;
         }
-        // Deploy expanded folder
+        /** 判断appBase目录是否存在appBase + baseName目录文件 **/
         File dir = new File(appBase, baseName);
         if (dir.exists())
+            /** 将appBase/baseName文件目录示的静态资源部署到host **/
             deployDirectory(cn, dir);
     }
 
 
     /**
-     * Deploy XML context descriptors.
-     * @param configBase The config base
-     * @param files The XML descriptors which should be deployed
+     * 使用线程池部署存放$catalinaBase/xmlBase目录下静态资源文件
      */
     protected void deployDescriptors(File configBase, String[] files) {
 
         if (files == null)
             return;
 
+        /** 获取线程池 **/
         ExecutorService es = host.getStartStopExecutor();
         List<Future<?>> results = new ArrayList<>();
 
+        /** 遍历$catalinaBase/xmlBase目录下xml文件，将每个xml文件部署动作，封装为一个任务对象DeployDescriptor，交给线程池处理 **/
         for (int i = 0; i < files.length; i++) {
             File contextXml = new File(configBase, files[i]);
 
@@ -536,8 +470,10 @@ public class HostConfig implements LifecycleListener {
             }
         }
 
+        /** 等待线程池异步处理结果 **/
         for (Future<?> result : results) {
             try {
+                /** 阻塞等待异步处理结果 **/
                 result.get();
             } catch (Exception e) {
                 log.error(sm.getString(
@@ -703,33 +639,39 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Deploy WAR files.
-     * @param appBase The base path for applications
-     * @param files The WARs to deploy
+     * 部署存放appBase目录下web应用程序
      */
     protected void deployWARs(File appBase, String[] files) {
 
         if (files == null)
             return;
 
+        /** 获取线程池 **/
         ExecutorService es = host.getStartStopExecutor();
         List<Future<?>> results = new ArrayList<>();
 
+        /** 遍历appBase目录下下的子文件 **/
         for (int i = 0; i < files.length; i++) {
-
+            /**  忽略META-INF文件  **/
             if (files[i].equalsIgnoreCase("META-INF"))
                 continue;
+
+            /**  忽略WEB-INF文件  **/
             if (files[i].equalsIgnoreCase("WEB-INF"))
                 continue;
             File war = new File(appBase, files[i]);
+
+            /** 查找war包文件类型文件，且不在应该忽略war包应用列表invalidWars中 **/
             if (files[i].toLowerCase(Locale.ENGLISH).endsWith(".war") &&
                     war.isFile() && !invalidWars.contains(files[i]) ) {
 
                 ContextName cn = new ContextName(files[i], true);
 
+                /** server列表中是否包含指定context名称 **/
                 if (isServiced(cn.getName())) {
                     continue;
                 }
+                /** 判断war包应用程序是否已经部署到host中 **/
                 if (deploymentExists(cn.getName())) {
                     DeployedApplication app = deployed.get(cn.getName());
                     boolean unpackWAR = unpackWARs;
@@ -755,7 +697,7 @@ public class HostConfig implements LifecycleListener {
                     continue;
                 }
 
-                // Check for WARs with /../ /./ or similar sequences in the name
+                /** 校验contextPath **/
                 if (!validateContextPath(appBase, cn.getBaseName())) {
                     log.error(sm.getString(
                             "hostConfig.illegalWarName", files[i]));
@@ -763,6 +705,7 @@ public class HostConfig implements LifecycleListener {
                     continue;
                 }
 
+                /** 将遍历过滤后每个war文件部署动作，封装为一个任务对象DeployWar，交给线程池处理**/
                 results.add(es.submit(new DeployWar(this, cn, war)));
             }
         }
@@ -778,9 +721,10 @@ public class HostConfig implements LifecycleListener {
     }
 
 
+    /**
+     * 校验contextPath
+     */
     private boolean validateContextPath(File appBase, String contextPath) {
-        // More complicated than the ideal as the canonical path may or may
-        // not end with File.separator for a directory
 
         StringBuilder docBase;
         String canonicalDocBase = null;
@@ -794,14 +738,10 @@ public class HostConfig implements LifecycleListener {
             } else {
                 docBase.append(contextPath.replace('/', File.separatorChar));
             }
-            // At this point docBase should be canonical but will not end
-            // with File.separator
 
             canonicalDocBase =
                 (new File(docBase.toString())).getCanonicalPath();
 
-            // If the canonicalDocBase ends with File.separator, add one to
-            // docBase before they are compared
             if (canonicalDocBase.endsWith(File.separator)) {
                 docBase.append(File.separator);
             }
@@ -809,8 +749,6 @@ public class HostConfig implements LifecycleListener {
             return false;
         }
 
-        // Compare the two. If they are not the same, the contextPath must
-        // have /../ like sequences in it
         return canonicalDocBase.equals(docBase.toString());
     }
 
@@ -1190,10 +1128,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Check if a webapp is already deployed in this host.
-     *
-     * @param contextName of the context which will be checked
-     * @return <code>true</code> if the specified deployment exists
+     * 检查是否已在此Host中部署指定contextName
      */
     protected boolean deploymentExists(String contextName) {
         return (deployed.containsKey(contextName) ||
@@ -1551,7 +1486,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Process a "start" event for this Host.
+     * 当host组件启动时触发 HostConfig启动操作
      */
     public void start() {
 
@@ -1559,6 +1494,7 @@ public class HostConfig implements LifecycleListener {
             log.debug(sm.getString("hostConfig.start"));
 
         try {
+            /** 将HostConfig对象注册到JMX Bean中 **/
             ObjectName hostON = host.getObjectName();
             oname = new ObjectName
                 (hostON.getDomain() + ":type=Deployer,host=" + host.getName());
@@ -1568,6 +1504,10 @@ public class HostConfig implements LifecycleListener {
             log.error(sm.getString("hostConfig.jmx.register", oname), e);
         }
 
+        /**
+         * 如果host.getAppBaseFile()获取文件对象不是目录，host.getAppBaseFile()表示tomcat存放web应用程序的目录文件对象
+         * 则关闭启动Host组件时自动部署Web应用程序，同时关闭热部署
+         * **/
         if (!host.getAppBaseFile().isDirectory()) {
             log.error(sm.getString("hostConfig.appBase", host.getName(),
                     host.getAppBaseFile().getPath()));
@@ -1575,6 +1515,9 @@ public class HostConfig implements LifecycleListener {
             host.setAutoDeploy(false);
         }
 
+        /**
+         * 如果开启启动Host组件时自动部署Web应用程序则调用deployApps()部署应用程序
+         **/
         if (host.getDeployOnStartup())
             deployApps();
 
@@ -1816,6 +1759,10 @@ public class HostConfig implements LifecycleListener {
         public boolean loggedDirWarning = false;
     }
 
+
+    /**
+     * 部署xml文件任务线程
+     */
     private static class DeployDescriptor implements Runnable {
 
         private HostConfig config;
@@ -1835,6 +1782,9 @@ public class HostConfig implements LifecycleListener {
         }
     }
 
+    /**
+     * 部署war文件任务线程
+     */
     private static class DeployWar implements Runnable {
 
         private HostConfig config;
@@ -1853,6 +1803,9 @@ public class HostConfig implements LifecycleListener {
         }
     }
 
+    /**
+     * 部署目录文件任务线程
+     */
     private static class DeployDirectory implements Runnable {
 
         private HostConfig config;

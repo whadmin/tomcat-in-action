@@ -43,14 +43,7 @@ import org.apache.catalina.util.ServerInfo;
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 
-/**
- * Standard implementation of the <b>Engine</b> interface.  Each
- * child container must be a Host implementation to process the specific
- * fully qualified host name of that virtual host. <br>
- * You can set the jvmRoute direct or with the System.property <b>jvmRoute</b>.
- *
- * @author Craig R. McClanahan
- */
+
 public class StandardEngine extends ContainerBase implements Engine {
 
     private static final Log log = LogFactory.getLog(StandardEngine.class);
@@ -59,60 +52,50 @@ public class StandardEngine extends ContainerBase implements Engine {
 
 
     /**
-     * Create a new StandardEngine component with the default basic Valve.
+     * 实例化StandardEngine
      */
     public StandardEngine() {
-
         super();
+        /** 设置StandardEngineValve作为pipeline组件尾Value 阀门 **/
         pipeline.setBasic(new StandardEngineValve());
-        /* Set the jmvRoute using the system property jvmRoute */
+        /** 从系统属性jvmRoute值，设置 Tomcat实例的JVM路由ID **/
         try {
             setJvmRoute(System.getProperty("jvmRoute"));
         } catch(Exception ex) {
             log.warn(sm.getString("standardEngine.jvmRouteFail"));
         }
-        // By default, the engine will hold the reloading thread
+        /** 设置周期任务执行间隔事件 **/
         backgroundProcessorDelay = 10;
-
     }
 
 
     // ----------------------------------------------------- Instance Variables
-
-
     /**
-     * Host name to use when no server host, or an unknown host,
-     * is specified in the request.
+     * 默认host子组件名称
      */
     private String defaultHost = null;
 
 
     /**
-     * The <code>Service</code> that owns this Engine, if any.
+     * 上层Service组件
      */
     private Service service = null;
 
+
     /**
-     * The JVM Route ID for this Tomcat instance. All Route ID's must be unique
-     * across the cluster.
+     * Tomcat实例的JVM路由ID。所有路由ID必须唯一,用于集群环境中
      */
     private String jvmRouteId;
 
     /**
-     * Default access log to use for request/response pairs where we can't ID
-     * the intended host and context.
+     * AccessLog组件
      */
     private final AtomicReference<AccessLog> defaultAccessLog =
         new AtomicReference<>();
 
     // ------------------------------------------------------------- Properties
 
-    /**
-     * Obtain the configured Realm and provide a default Realm implementation
-     * when no explicit configuration is set.
-     *
-     * @return configured realm, or a {@link NullRealm} by default
-     */
+
     @Override
     public Realm getRealm() {
         Realm configured = super.getRealm();
@@ -126,25 +109,13 @@ public class StandardEngine extends ContainerBase implements Engine {
     }
 
 
-    /**
-     * Return the default host.
-     */
     @Override
     public String getDefaultHost() {
-
         return (defaultHost);
-
     }
 
-
-    /**
-     * Set the default host.
-     *
-     * @param host The new default host
-     */
     @Override
     public void setDefaultHost(String host) {
-
         String oldDefaultHost = this.defaultHost;
         if (host == null) {
             this.defaultHost = null;
@@ -153,48 +124,26 @@ public class StandardEngine extends ContainerBase implements Engine {
         }
         support.firePropertyChange("defaultHost", oldDefaultHost,
                                    this.defaultHost);
-
     }
 
 
-    /**
-     * Set the cluster-wide unique identifier for this Engine.
-     * This value is only useful in a load-balancing scenario.
-     * <p>
-     * This property should not be changed once it is set.
-     */
     @Override
     public void setJvmRoute(String routeId) {
         jvmRouteId = routeId;
     }
 
 
-    /**
-     * Retrieve the cluster-wide unique identifier for this Engine.
-     * This value is only useful in a load-balancing scenario.
-     */
     @Override
     public String getJvmRoute() {
         return jvmRouteId;
     }
 
 
-    /**
-     * Return the <code>Service</code> with which we are associated (if any).
-     */
     @Override
     public Service getService() {
-
         return (this.service);
-
     }
 
-
-    /**
-     * Set the <code>Service</code> with which we are associated (if any).
-     *
-     * @param service The service that owns this Engine
-     */
     @Override
     public void setService(Service service) {
         this.service = service;
@@ -203,71 +152,44 @@ public class StandardEngine extends ContainerBase implements Engine {
     // --------------------------------------------------------- Public Methods
 
 
-    /**
-     * Add a child Container, only if the proposed child is an implementation
-     * of Host.
-     *
-     * @param child Child container to be added
-     */
     @Override
     public void addChild(Container child) {
-
-        if (!(child instanceof Host))
+        if (!(child instanceof Host)){
             throw new IllegalArgumentException
-                (sm.getString("standardEngine.notHost"));
+                    (sm.getString("standardEngine.notHost"));
+        }
         super.addChild(child);
-
     }
 
 
-    /**
-     * Disallow any attempt to set a parent for this Container, since an
-     * Engine is supposed to be at the top of the Container hierarchy.
-     *
-     * @param container Proposed parent Container
-     */
     @Override
     public void setParent(Container container) {
-
         throw new IllegalArgumentException
             (sm.getString("standardEngine.notParent"));
-
     }
 
 
     @Override
     protected void initInternal() throws LifecycleException {
-        // Ensure that a Realm is present before any attempt is made to start
-        // one. This will create the default NullRealm if necessary.
         getRealm();
         super.initInternal();
     }
 
 
-    /**
-     * Start this component and implement the requirements
-     * of {@link org.apache.catalina.util.LifecycleBase#startInternal()}.
-     *
-     * @exception LifecycleException if this component detects a fatal error
-     *  that prevents this component from being used
-     */
     @Override
     protected synchronized void startInternal() throws LifecycleException {
-
-        // Log our server identification information
-        if(log.isInfoEnabled())
+        if(log.isInfoEnabled()){
             log.info( "Starting Servlet Engine: " + ServerInfo.getServerInfo());
-
-        // Standard container startup
+        }
         super.startInternal();
     }
 
 
     /**
-     * Override the default implementation. If no access log is defined for the
-     * Engine, look for one in the Engine's default host and then the default
-     * host's ROOT context. If still none is found, return the default NoOp
-     * access log.
+     * 使用AccessLog组件打印日志，
+     *
+     * 如果useDefault=true,使用defaultAccessLog属性中保存AccessLog打印日志
+     * 如果defaultAccessLog未初始化AccessLog，则尝试从子容器host,context获取绑定的AccessLog组件设置到defaultAccessLog，使用新设置AccessLog组件打印日志
      */
     @Override
     public void logAccess(Request request, Response response, long time,
@@ -282,12 +204,13 @@ public class StandardEngine extends ContainerBase implements Engine {
 
         if (!logged && useDefault) {
             AccessLog newDefaultAccessLog = defaultAccessLog.get();
+            /** 如果newDefaultAccessLog未初始化 **/
             if (newDefaultAccessLog == null) {
-                // If we reached this point, this Engine can't have an AccessLog
-                // Look in the defaultHost
+                /** 获取默认host子容器组件 **/
                 Host host = (Host) findChild(getDefaultHost());
                 Context context = null;
                 if (host != null && host.getState().isAvailable()) {
+                    /** 获取host容器绑定的AccessLog 设置给 newDefaultAccessLog**/
                     newDefaultAccessLog = host.getAccessLog();
 
                     if (newDefaultAccessLog != null) {
@@ -298,7 +221,7 @@ public class StandardEngine extends ContainerBase implements Engine {
                             l.install();
                         }
                     } else {
-                        // Try the ROOT context of default host
+                        /** 获取context容器绑定的AccessLog 设置给 newDefaultAccessLog**/
                         context = (Context) host.findChild("");
                         if (context != null &&
                                 context.getState().isAvailable()) {
@@ -306,6 +229,7 @@ public class StandardEngine extends ContainerBase implements Engine {
                             if (newDefaultAccessLog != null) {
                                 if (defaultAccessLog.compareAndSet(null,
                                         newDefaultAccessLog)) {
+                                    /** 并设置AccessLogListener 作为当前容器对象engine，和子容器host的监听器。 **/
                                     AccessLogListener l = new AccessLogListener(
                                             this, null, context);
                                     l.install();
@@ -315,17 +239,19 @@ public class StandardEngine extends ContainerBase implements Engine {
                     }
                 }
 
+                /** 如果无法从子容器获取AccessLog，默认使用NoopAccessLog作为默认的AccessLog **/
                 if (newDefaultAccessLog == null) {
                     newDefaultAccessLog = new NoopAccessLog();
                     if (defaultAccessLog.compareAndSet(null,
                             newDefaultAccessLog)) {
+                        /** 并设置AccessLogListener 作为当前容器对象engine，和子容器host的监听器。 **/
                         AccessLogListener l = new AccessLogListener(this, host,
                                 context);
                         l.install();
                     }
                 }
             }
-
+            /** 使用newDefaultAccessLog打印日志 **/
             newDefaultAccessLog.log(request, response, time);
         }
     }
@@ -460,9 +386,6 @@ public class StandardEngine extends ContainerBase implements Engine {
             if (Lifecycle.AFTER_START_EVENT.equals(type) ||
                     Lifecycle.BEFORE_STOP_EVENT.equals(type) ||
                     Lifecycle.BEFORE_DESTROY_EVENT.equals(type)) {
-                // Container is being started/stopped/removed
-                // Force re-calculation and disable listener since it won't
-                // be re-used
                 engine.defaultAccessLog.set(null);
                 uninstall();
             }
@@ -472,8 +395,6 @@ public class StandardEngine extends ContainerBase implements Engine {
         public void propertyChange(PropertyChangeEvent evt) {
             if (disabled) return;
             if ("defaultHost".equals(evt.getPropertyName())) {
-                // Force re-calculation and disable listener since it won't
-                // be re-used
                 engine.defaultAccessLog.set(null);
                 uninstall();
             }
@@ -481,13 +402,10 @@ public class StandardEngine extends ContainerBase implements Engine {
 
         @Override
         public void containerEvent(ContainerEvent event) {
-            // Only useful for hosts
             if (disabled) return;
             if (Container.ADD_CHILD_EVENT.equals(event.getType())) {
                 Context context = (Context) event.getData();
                 if ("".equals(context.getPath())) {
-                    // Force re-calculation and disable listener since it won't
-                    // be re-used
                     engine.defaultAccessLog.set(null);
                     uninstall();
                 }

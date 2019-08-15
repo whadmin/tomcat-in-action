@@ -83,43 +83,70 @@ public class EngineRuleSet extends RuleSetBase {
     @Override
     public void addRuleInstances(Digester digester) {
 
+        //解析<Server><Service><Engine>标签
+        /** 解析<Engine>标签实例化StandardEngine对象，并push到操作栈中 **/
         digester.addObjectCreate(prefix + "Engine",
                                  "org.apache.catalina.core.StandardEngine",
                                  "className");
+
+        /** 解析<Engine>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties(prefix + "Engine");
+
+        /** 解析<Engine>标签，使用LifecycleListenerRule规则，负责给栈顶对象添加一个生命周期监听器. 默认listenerClass为engineConfigClass，
+         * 或者在标签指定org.apache.catalina.startup.EngineConfig属性值作为listenerClass**/
         digester.addRule(prefix + "Engine",
                          new LifecycleListenerRule
                          ("org.apache.catalina.startup.EngineConfig",
                           "engineConfigClass"));
+
+        /** 解析<Engine>标签将操作栈栈顶对象作为次栈顶对象StandardService.setContainer方法调用的参数，即设置到StandardServer.container属性中**/
         digester.addSetNext(prefix + "Engine",
                             "setContainer",
                             "org.apache.catalina.Engine");
 
-        //Cluster configuration start
+        //解析<Server><Service><Engine><Cluster>标签
+        /** 解析<Cluster>标签实例化标签中className属性定义的对象，并push到操作栈中 **/
         digester.addObjectCreate(prefix + "Engine/Cluster",
                                  null, // MUST be specified in the element
                                  "className");
+
+        /** 解析<Cluster>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties(prefix + "Engine/Cluster");
+
+        /** 解析<Cluster>标签将操作栈栈顶对象作为次栈顶对象StandardEngine.setCluster方法调用的参数，即设置到StandardEngine.cluster属性中**/
         digester.addSetNext(prefix + "Engine/Cluster",
                             "setCluster",
                             "org.apache.catalina.Cluster");
-        //Cluster configuration end
 
+        //解析<Server><Service><Engine><Listener>标签
+        /** 解析<Listener>标签实例化标签中className属性定义的对象，并push到操作栈中 **/
         digester.addObjectCreate(prefix + "Engine/Listener",
                                  null, // MUST be specified in the element
                                  "className");
+
+        /** 解析<Listener>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties(prefix + "Engine/Listener");
+
+        /** 解析<Cluster>标签将操作栈栈顶对象作为次栈顶对象StandardEngine.addLifecycleListener方法调用的参数，即设置到StandardEngine生命周期监听器数组中**/
         digester.addSetNext(prefix + "Engine/Listener",
                             "addLifecycleListener",
                             "org.apache.catalina.LifecycleListener");
 
-
+        /** 解析<Realm>标签使用自定义规则组RealmRuleSet**/
         digester.addRuleSet(new RealmRuleSet(prefix + "Engine/"));
 
+
+        //解析<Server><Service><Engine><Valve>标签
+        /** 解析<Valve>标签实例化标签中className属性定义的对象，并push到操作栈中 **/
         digester.addObjectCreate(prefix + "Engine/Valve",
                                  null, // MUST be specified in the element
                                  "className");
+
+        /** 解析<Valve>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties(prefix + "Engine/Valve");
+
+
+        /** 解析<Valve>标签将操作栈栈顶对象作为次栈顶对象StandardEngine.addValve方法调用的参数，即设置到StandardEngine中Pipline组件中**/
         digester.addSetNext(prefix + "Engine/Valve",
                             "addValve",
                             "org.apache.catalina.Valve");

@@ -24,63 +24,26 @@ import org.apache.tomcat.util.digester.RuleSetBase;
 
 
 /**
- * <p><strong>RuleSet</strong> for processing the contents of a Realm definition
- * element.  This <code>RuleSet</code> supports Realms such as the
- * <code>CombinedRealm</code> that used nested Realms.</p>
+ * 解析Realm标签添加到StandardEngine属性中
  */
 @SuppressWarnings("deprecation")
 public class RealmRuleSet extends RuleSetBase {
-
 
     private static final int MAX_NESTED_REALM_LEVELS = Integer.getInteger(
             "org.apache.catalina.startup.RealmRuleSet.MAX_NESTED_REALM_LEVELS",
             3).intValue();
 
-    // ----------------------------------------------------- Instance Variables
-
-
-    /**
-     * The matching pattern prefix to use for recognizing our elements.
-     */
     protected final String prefix;
 
-
-    // ------------------------------------------------------------ Constructor
-
-
-    /**
-     * Construct an instance of this <code>RuleSet</code> with the default
-     * matching pattern prefix.
-     */
     public RealmRuleSet() {
         this("");
     }
 
 
-    /**
-     * Construct an instance of this <code>RuleSet</code> with the specified
-     * matching pattern prefix.
-     *
-     * @param prefix Prefix for matching pattern rules (including the
-     *  trailing slash character)
-     */
     public RealmRuleSet(String prefix) {
         this.prefix = prefix;
     }
 
-
-    // --------------------------------------------------------- Public Methods
-
-
-    /**
-     * <p>Add the set of Rule instances defined in this RuleSet to the
-     * specified <code>Digester</code> instance, associating them with
-     * our namespace URI (if any).  This method should only be called
-     * by a Digester instance.</p>
-     *
-     * @param digester Digester instance to which the new Rule instances
-     *  should be added.
-     */
     @Override
     public void addRuleInstances(Digester digester) {
         StringBuilder pattern = new StringBuilder(prefix);

@@ -828,7 +828,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
 
         checkStateForClassLoading(name);
 
-        // (1) Permission to define this class when using a SecurityManager
+        /** 使用SecurityManager检查 name对应Class访问权限 **/
         if (securityManager != null) {
             int i = name.lastIndexOf('.');
             if (i >= 0) {
@@ -1187,31 +1187,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
     }
 
 
-    /**
-     * Load the class with the specified name, searching using the following
-     * algorithm until it finds and returns the class.  If the class cannot
-     * be found, returns <code>ClassNotFoundException</code>.
-     * <ul>
-     * <li>Call <code>findLoadedClass(String)</code> to check if the
-     *     class has already been loaded.  If it has, the same
-     *     <code>Class</code> object is returned.</li>
-     * <li>If the <code>delegate</code> property is set to <code>true</code>,
-     *     call the <code>loadClass()</code> method of the parent class
-     *     loader, if any.</li>
-     * <li>Call <code>findClass()</code> to find this class in our locally
-     *     defined repositories.</li>
-     * <li>Call the <code>loadClass()</code> method of our parent
-     *     class loader, if any.</li>
-     * </ul>
-     * If the class was found using the above steps, and the
-     * <code>resolve</code> flag is <code>true</code>, this method will then
-     * call <code>resolveClass(Class)</code> on the resulting Class object.
-     *
-     * @param name The binary name of the class to be loaded
-     * @param resolve If <code>true</code> then resolve the class
-     *
-     * @exception ClassNotFoundException if the class was not found
-     */
+
     @Override
     public Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
 
@@ -1220,10 +1196,11 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                 log.debug("loadClass(" + name + ", " + resolve + ")");
             Class<?> clazz = null;
 
-            // Log access to stopped class loader
+            /** 1 检查WebappClassLoader组件是否处于运行状态，如果处于非运行状态抛出IllegalStateException异常 **/
             checkStateForClassLoading(name);
 
-            // (0) Check our previously loaded local class cache
+
+            /** 2 检查要加载的类是否已经被加载到resourceEntries集合缓存中，**/
             clazz = findLoadedClass0(name);
             if (clazz != null) {
                 if (log.isDebugEnabled())
@@ -1233,7 +1210,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                 return (clazz);
             }
 
-            // (0.1) Check our previously loaded class cache
+            /** 3 调用JVM父类ClassLoader.findLoadedClass0 native方法查看指定类是否被当前类加载器加载过 **/
             clazz = findLoadedClass(name);
             if (clazz != null) {
                 if (log.isDebugEnabled())
@@ -1243,11 +1220,11 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                 return (clazz);
             }
 
-            // (0.2) Try loading the class with the system class loader, to prevent
-            //       the webapp from overriding Java SE classes. This implements
-            //       SRV.10.7.2
+            /** 将类包路径状态url路径 **/
             String resourceName = binaryNameToPath(name, false);
 
+
+            /** 判断加载类资源url是否存在于ExtClassLoader中 **/
             ClassLoader javaseLoader = getJavaseClassLoader();
             boolean tryLoadingFromJavaseLoader;
             try {
@@ -1278,6 +1255,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                 tryLoadingFromJavaseLoader = true;
             }
 
+            /** 上一步发现加载类资源url存在于ExtClassLoader中，使用ExtClassLoader加载**/
             if (tryLoadingFromJavaseLoader) {
                 try {
                     clazz = javaseLoader.loadClass(name);
@@ -1291,7 +1269,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                 }
             }
 
-            // (0.5) Permission to access this class when using a SecurityManager
+            /** 通过 securityManager 对 是否能加载 name 的权限进行检查 **/
             if (securityManager != null) {
                 int i = name.lastIndexOf('.');
                 if (i >= 0) {
@@ -1306,9 +1284,11 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                 }
             }
 
+            /** 是否优先使用父类加载器加载 **/
             boolean delegateLoad = delegate || filter(name, true);
 
-            // (1) Delegate to our parent if requested
+
+            /** 使用父类加载器加载 **/
             if (delegateLoad) {
                 if (log.isDebugEnabled())
                     log.debug("  Delegating to parent classloader1 " + parent);
@@ -1326,7 +1306,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                 }
             }
 
-            // (2) Search local repositories
+            /**  使用当前类加载器加载 **/
             if (log.isDebugEnabled())
                 log.debug("  Searching local repositories");
             try {
@@ -1339,10 +1319,9 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                     return (clazz);
                 }
             } catch (ClassNotFoundException e) {
-                // Ignore
             }
 
-            // (3) Delegate to parent unconditionally
+            /** 使用父类加载器加载 **/
             if (!delegateLoad) {
                 if (log.isDebugEnabled())
                     log.debug("  Delegating to parent classloader at end: " + parent);
@@ -1365,6 +1344,9 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
     }
 
 
+    /**
+     * 调用checkStateForResourceLoading方法，检查WebappClassLoader组件是否处于运行状态，非运行状态捕获IllegalStateException异常
+     */
     protected void checkStateForClassLoading(String className) throws ClassNotFoundException {
         // It is not permitted to load new classes once the web application has
         // been stopped.
@@ -1376,6 +1358,9 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
     }
 
 
+    /**
+     * 检查WebappClassLoader组件是否处于运行状态，如果处于非运行状态抛出IllegalStateException异常
+     */
     protected void checkStateForResourceLoading(String resource) throws IllegalStateException {
         // It is not permitted to load resources once the web application has
         // been stopped.
@@ -1455,9 +1440,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
 
 
     /**
-     * Add a lifecycle event listener to this component.
-     *
-     * @param listener The listener to add
+     * 添加组件生命周期监听器
      */
     @Override
     public void addLifecycleListener(LifecycleListener listener) {
@@ -1466,8 +1449,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
 
 
     /**
-     * Get the lifecycle listeners associated with this lifecycle. If this
-     * Lifecycle has no listeners registered, a zero-length array is returned.
+     * 返回new 生命周期监听器
      */
     @Override
     public LifecycleListener[] findLifecycleListeners() {
@@ -1476,9 +1458,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
 
 
     /**
-     * Remove a lifecycle event listener from this component.
-     *
-     * @param listener The listener to remove
+     * 删除组件生命周期监听器
      */
     @Override
     public void removeLifecycleListener(LifecycleListener listener) {
@@ -2425,6 +2405,9 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
     }
 
 
+    /**
+     * 将包名称转换为类名称
+     */
     private String nameToPath(String name) {
         if (name.startsWith("/")) {
             return name;
@@ -2464,12 +2447,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
 
 
     /**
-     * Finds the class with the given name if it has previously been
-     * loaded and cached by this class loader, and return the Class object.
-     * If this class has not been cached, return <code>null</code>.
-     *
-     * @param name The binary name of the resource to return
-     * @return a loaded class
+     * 从本地缓存中获取name对应Class对象
      */
     protected Class<?> findLoadedClass0(String name) {
 
@@ -2484,7 +2462,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
 
 
     /**
-     * Refresh the system policy file, to pick up eventual changes.
+     * 刷新系统策略文件，以获取最终更改。
      */
     protected void refreshPolicy() {
 
@@ -2503,12 +2481,15 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
 
 
     /**
-     * Filter classes.
-     *
-     * @param name class name
-     * @param isClassName <code>true</code> if name is a class name,
-     *                <code>false</code> if name is a resource name
-     * @return <code>true</code> if the class should be filtered
+     * 过滤name
+     */
+    @Deprecated
+    protected boolean filter(String name) {
+        return filter(name, true) || filter(name, false);
+    }
+
+    /**
+     * 过滤name,isClassName为true表示name是类名,isClassName为false表示name是资源名称
      */
     protected boolean filter(String name, boolean isClassName) {
 
@@ -2528,9 +2509,9 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                     return false;
                 }
                 if (name.startsWith("el.", 6) ||
-                    name.startsWith("servlet.", 6) ||
-                    name.startsWith("websocket.", 6) ||
-                    name.startsWith("security.auth.message.", 6)) {
+                        name.startsWith("servlet.", 6) ||
+                        name.startsWith("websocket.", 6) ||
+                        name.startsWith("security.auth.message.", 6)) {
                     return true;
                 }
             } else if (!isClassName && ch == '/') {
@@ -2539,9 +2520,9 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                     return false;
                 }
                 if (name.startsWith("el/", 6) ||
-                    name.startsWith("servlet/", 6) ||
-                    name.startsWith("websocket/", 6) ||
-                    name.startsWith("security/auth/message/", 6)) {
+                        name.startsWith("servlet/", 6) ||
+                        name.startsWith("websocket/", 6) ||
+                        name.startsWith("security/auth/message/", 6)) {
                     return true;
                 }
             }
@@ -2559,12 +2540,12 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                         return false;
                     }
                     if (name.startsWith("el.", 11) ||
-                        name.startsWith("catalina.", 11) ||
-                        name.startsWith("jasper.", 11) ||
-                        name.startsWith("juli.", 11) ||
-                        name.startsWith("tomcat.", 11) ||
-                        name.startsWith("naming.", 11) ||
-                        name.startsWith("coyote.", 11)) {
+                            name.startsWith("catalina.", 11) ||
+                            name.startsWith("jasper.", 11) ||
+                            name.startsWith("juli.", 11) ||
+                            name.startsWith("tomcat.", 11) ||
+                            name.startsWith("naming.", 11) ||
+                            name.startsWith("coyote.", 11)) {
                         return true;
                     }
                 }
@@ -2576,12 +2557,12 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                         return false;
                     }
                     if (name.startsWith("el/", 11) ||
-                        name.startsWith("catalina/", 11) ||
-                        name.startsWith("jasper/", 11) ||
-                        name.startsWith("juli/", 11) ||
-                        name.startsWith("tomcat/", 11) ||
-                        name.startsWith("naming/", 11) ||
-                        name.startsWith("coyote/", 11)) {
+                            name.startsWith("catalina/", 11) ||
+                            name.startsWith("jasper/", 11) ||
+                            name.startsWith("juli/", 11) ||
+                            name.startsWith("tomcat/", 11) ||
+                            name.startsWith("naming/", 11) ||
+                            name.startsWith("coyote/", 11)) {
                         return true;
                     }
                 }
@@ -2592,19 +2573,8 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
 
 
     /**
-     * Filter classes.
-     *
-     * @param name class name
-     * @return <code>true</code> if the class should be filtered
-     * @deprecated Use {@link #filter(String, boolean)} This will be removed in
-     *             Tomcat 9
+     * 给类加载添加URL
      */
-    @Deprecated
-    protected boolean filter(String name) {
-        return filter(name, true) || filter(name, false);
-    }
-
-
     @Override
     protected void addURL(URL url) {
         super.addURL(url);
@@ -2612,12 +2582,18 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
     }
 
 
+    /**
+     * 返回context组件名称
+     */
     @Override
     public String getWebappName() {
         return getContextName();
     }
 
 
+    /**
+     * 返回host组件名称
+     */
     @Override
     public String getHostName() {
         if (resources != null) {
@@ -2630,6 +2606,9 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
     }
 
 
+    /**
+     * 返回service组件名称
+     */
     @Override
     public String getServiceName() {
         if (resources != null) {

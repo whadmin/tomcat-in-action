@@ -155,51 +155,48 @@ public final class ClassLoaderFactory {
         if (log.isDebugEnabled())
             log.debug("Creating new class loader");
 
-        // 构造集合，用来作为构造URLClassLoader时需要URL集合参数
+        /** 定义个URL集合，用来作为构造URLClassLoader时需要URL集合参数 **/
         Set<URL> set = new LinkedHashSet<>();
 
 
-        //读取遍历repositories，将资源添加到构造URLClassLoader需要URL集合中
+        /** 读取遍历repositories，将资源转换为URL放入set集合中 **/
         if (repositories != null) {
             for (Repository repository : repositories)  {
                 if (repository.getType() == RepositoryType.URL) {
-                    //通过指定资源路径构造URL
+                    /** 通过指定资源路径构造URL **/
                     URL url = buildClassLoaderUrl(repository.getLocation());
                     if (log.isDebugEnabled())
                         log.debug("  Including URL " + url);
-                    //添加到set中
                     set.add(url);
                 } else if (repository.getType() == RepositoryType.DIR) {
                     File directory = new File(repository.getLocation());
                     directory = directory.getCanonicalFile();
-                    //校验目录资源
+                    /** 校验目录资源 **/
                     if (!validateFile(directory, RepositoryType.DIR)) {
                         continue;
                     }
-                    //获取文件目录URL
+                    /** 获取文件目录URL **/
                     URL url = buildClassLoaderUrl(directory);
                     if (log.isDebugEnabled())
                         log.debug("  Including directory " + url);
 
-                    //添加到set中
                     set.add(url);
                 } else if (repository.getType() == RepositoryType.JAR) {
                     File file=new File(repository.getLocation());
                     file = file.getCanonicalFile();
-                    //校验jar文件资源
+                    /** 校验jar文件资源 **/
                     if (!validateFile(file, RepositoryType.JAR)) {
                         continue;
                     }
-                    //获取jar文件URL
+                    /**  获取jar文件URL **/
                     URL url = buildClassLoaderUrl(file);
                     if (log.isDebugEnabled())
                         log.debug("  Including jar file " + url);
-                    //添加到set中
                     set.add(url);
                 } else if (repository.getType() == RepositoryType.GLOB) {
                     File directory=new File(repository.getLocation());
                     directory = directory.getCanonicalFile();
-                    //校验*.jar目录资源
+                    /** 校验jar文件资源 **/
                     if (!validateFile(directory, RepositoryType.GLOB)) {
                         continue;
                     }
@@ -211,7 +208,7 @@ public final class ClassLoaderFactory {
                     if (filenames == null) {
                         continue;
                     }
-                    //遍历目录中文件，找到jar文件，添加到set中
+                    /** 遍历目录中文件，找到jar文件，添加到set中 **/
                     for (int j = 0; j < filenames.length; j++) {
                         String filename = filenames[j].toLowerCase(Locale.ENGLISH);
                         if (!filename.endsWith(".jar"))
@@ -231,14 +228,14 @@ public final class ClassLoaderFactory {
             }
         }
 
-        // 将集合URL转换为数组
+        /** 将集合URL转换为数组 **/
         final URL[] array = set.toArray(new URL[set.size()]);
         if (log.isDebugEnabled())
             for (int i = 0; i < array.length; i++) {
                 log.debug("  location " + i + " is " + array[i]);
             }
 
-        //创建ClassLoader ,类型URLClassLoader
+        /** 创建URLClassLoader **/
         return AccessController.doPrivileged(
                 new PrivilegedAction<URLClassLoader>() {
                     @Override

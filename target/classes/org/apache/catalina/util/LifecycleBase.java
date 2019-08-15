@@ -136,7 +136,7 @@ public abstract class LifecycleBase implements Lifecycle {
     protected abstract void initInternal() throws LifecycleException;
 
     /**
-     * 组件初始化动作，所有组件通用操作
+     * 组件启动动作，所有组件通用操作
      */
     @Override
     public final synchronized void start() throws LifecycleException {
@@ -205,7 +205,7 @@ public abstract class LifecycleBase implements Lifecycle {
 
 
     /**
-     * 组件初始化动作，所有组件通用操作
+     * 组件停止化动作，所有组件通用操作
      */
     @Override
     public final synchronized void stop() throws LifecycleException {
@@ -337,6 +337,9 @@ public abstract class LifecycleBase implements Lifecycle {
     }
 
 
+    /**
+     * 销毁模板方法
+     */
     protected abstract void destroyInternal() throws LifecycleException;
 
     /**

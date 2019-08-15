@@ -37,76 +37,43 @@ import org.apache.tomcat.util.res.StringManager;
 public class EngineConfig
     implements LifecycleListener {
 
-
     private static final Log log = LogFactory.getLog(EngineConfig.class);
 
-    // ----------------------------------------------------- Instance Variables
-
-
-    /**
-     * The Engine we are associated with.
-     */
     protected Engine engine = null;
 
-
-    /**
-     * The string resources for this package.
-     */
     protected static final StringManager sm =
         StringManager.getManager(Constants.Package);
 
 
-    // --------------------------------------------------------- Public Methods
-
-
-    /**
-     * Process the START event for an associated Engine.
-     *
-     * @param event The lifecycle event that has occurred
-     */
     @Override
     public void lifecycleEvent(LifecycleEvent event) {
 
-        // Identify the engine we are associated with
+
         try {
+            /** 获取触发事件的组件engine **/
             engine = (Engine) event.getLifecycle();
         } catch (ClassCastException e) {
             log.error(sm.getString("engineConfig.cce", event.getLifecycle()), e);
             return;
         }
-
-        // Process the event that has occurred
+        /** 如果当前事件START_EVENT，调用start()方法打印启动日志 **/
         if (event.getType().equals(Lifecycle.START_EVENT))
             start();
+
+        /** 如果当前事件STOP_EVENT，调用stop()方法打印停止日志 **/
         else if (event.getType().equals(Lifecycle.STOP_EVENT))
             stop();
-
     }
 
-
-    // -------------------------------------------------------- Protected Methods
-
-
-    /**
-     * Process a "start" event for this Engine.
-     */
     protected void start() {
-
         if (engine.getLogger().isDebugEnabled())
             engine.getLogger().debug(sm.getString("engineConfig.start"));
-
     }
 
 
-    /**
-     * Process a "stop" event for this Engine.
-     */
     protected void stop() {
-
         if (engine.getLogger().isDebugEnabled())
             engine.getLogger().debug(sm.getString("engineConfig.stop"));
 
     }
-
-
 }

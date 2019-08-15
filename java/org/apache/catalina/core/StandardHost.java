@@ -44,19 +44,11 @@ import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 import org.apache.tomcat.util.ExceptionUtils;
 
-/**
- * Standard implementation of the <b>Host</b> interface.  Each
- * child container must be a Context implementation to process the
- * requests directed to a particular web application.
- *
- * @author Craig R. McClanahan
- * @author Remy Maucherat
- */
+
 public class StandardHost extends ContainerBase implements Host {
 
     private static final Log log = LogFactory.getLog(StandardHost.class);
 
-    // ----------------------------------------------------------- Constructors
     /**
      * 实例化StandardHost组件
      */
@@ -65,37 +57,39 @@ public class StandardHost extends ContainerBase implements Host {
         pipeline.setBasic(new StandardHostValve());
     }
 
-
-    // ----------------------------------------------------- Instance Variables
-
-
     /**
-     * 别名数组
+     * Host组件别名
      */
     private String[] aliases = new String[0];
 
+    /**
+     * 处理Host组件别名同步锁对象
+     */
     private final Object aliasesLock = new Object();
 
     /**
-     * Host组件的应用程序根目录。
+     * tomcat存放web应用程序相对路径或绝对路径，如果是相对路径则完整路径为$catalinaHome/appBase
      */
     private String appBase = "webapps";
+
+    /**
+     * tomcat存放web应用程序的目录文件对象
+     */
     private volatile File appBaseFile = null;
 
     /**
-     * Host组件的XML根目录
+     * host组件配置文件相对路径，配置文件路径为$catalinaBase/xmlBase
      */
     private String xmlBase = null;
 
     /**
-     * Host组件默认配置路径
+     * host组件配置文件对象，对应路径为$catalinaBase/xmlBase
      */
     private volatile File hostConfigBase = null;
 
     /**
-     * 自动部署
-     * 是否应在Tomcat运行时Host组件定期检查新的或更新的Web应用程序。如果为true，则Tomcat会定期检查appBase和xmlBase目录
-     * 对于更新的应用程序触发Web应用程序的重新加载
+     * 是否支持热部署
+     * 如果为true，虚拟主机Host会定期检查appBase和xmlBase目录下新Web应用程序或静态资源，如果发生更新则会触发对应context组件的重新加载
      */
     private boolean autoDeploy = true;
 
@@ -115,68 +109,69 @@ public class StandardHost extends ContainerBase implements Host {
 
 
     /**
-     * 标志值指示在启动Host组件时是否应自动部署Host组件的Web应用程序。标志的值默认为true。
+     * 标识在启动Host组件时是否应自动部署Host组件的Web应用程序。标志的值默认为true。
      */
     private boolean deployOnStartup = true;
 
 
     /**
-     * 禁用解析嵌入式应用（位于内上下文XML描述符 /META-INF/context.xml）
+     * 是否要禁止应用程序中定义/META-INF/context.xml
      */
     private boolean deployXML = !Globals.IS_SECURITY_ENABLED;
 
 
     /**
-     * 启动想嵌入在应用程序（位于内上下文XML描述符 /META-INF/context.xml）
+     * 如果在应用程序中定义了/META-INF/context.xml，是否要拷贝到$catalinaBase/xmlBase目录下
      */
     private boolean copyXML = false;
 
 
     /**
-     * Host组件子组件Pilpline组件内处理错误Valve实现类
+     * Host组件子组件Pilpline组件内处理异常Valve实现类
      */
     private String errorReportValveClass =
         "org.apache.catalina.valves.ErrorReportValve";
 
 
     /**
-     * 是否解压放在Host组件的应用程序根目录war包在加载运行
+     * 是否解压war包种应用程序在执行，默认为true
      */
     private boolean unpackWARs = true;
 
 
     /**
-     * 应用程序要使用的临时目录的路径名，每个应用程序都有自己的子目录
-     * catalina_home\work\Catalina\localhost
+     * 标识host组件工作的临时目录
+     * $catalinaBase/workDir
      */
     private String workDir = null;
 
 
     /**
-     * 启动时为appbase和xmlbase创建目录
+     * 标识是否需要在启动时创建appbase和xmlbase目录
      */
     private boolean createDirs = true;
 
 
     /**
-     * 跟踪子Web应用程序的类加载器，以便检测内存泄漏。
+     * 使用WeakHashMap保存子容器组件context绑定的WebAppClassLoader,以及对应子容器组件context的名称
      */
     private final Map<ClassLoader, String> childClassLoaders =
             new WeakHashMap<>();
 
 
     /**
-     * 正则表达式定义自动部署应用
+     * 表示正则表达式，用来定义自动部署哪些应用程序
      */
     private Pattern deployIgnore = null;
 
 
     /**
-     * 此标志确定作为自动部署过程的一部分
+     * 是否检查现在可以取消部署的旧版本的应用程序
      */
     private boolean undeployOldVersions = false;
 
-    /** true如果任何具有load-on-startup> = 0的servlet无法自己启动，则设置为让每个子上下文都无法启动它。 **/
+
+    /** 如果在启动tomcat中加载servelt时发生异常是否忽略 默认不忽略**/
     private boolean failCtxIfServletStartFails = false;
 
 
@@ -400,7 +395,7 @@ public class StandardHost extends ContainerBase implements Host {
             throw new IllegalArgumentException
                 (sm.getString("standardHost.nullName"));
 
-        name = name.toLowerCase(Locale.ENGLISH);      // Internally all names are lower case
+        name = name.toLowerCase(Locale.ENGLISH);
         String oldName = this.name;
         this.name = name;
         support.firePropertyChange("name", oldName, this.name);
