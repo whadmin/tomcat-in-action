@@ -24,15 +24,24 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.tomcat.util.descriptor.web.ErrorPage;
 
 /**
- * Provides support for tracking per exception type and per HTTP status code
- * error pages.
+ * 支持Servelt规范中ErrorPage帮助程序
+ *
+ *   <error-page>
+ *         <error-code>404</error-code>
+ *         <location>/WEB-INF/404.html</location>
+ *     </error-page>
+ *
+ *    <error-page>
+ *         <error-code>java.lang.NullPointException</error-code>
+ *         <location>/WEB-INF/NullPointException.html</location>
+ *     </error-page>
  */
 public class ErrorPageSupport {
 
-    // Fully qualified class name to error page
+    /** 存储异常类型对应ErrorPage **/
     private ConcurrentMap<String, ErrorPage> exceptionPages = new ConcurrentHashMap<>();
 
-    // HTTP status code to error page
+    /** 存储Http状态对应ErrorPage **/
     private ConcurrentMap<Integer, ErrorPage> statusPages = new ConcurrentHashMap<>();
 
 
@@ -60,18 +69,6 @@ public class ErrorPageSupport {
         return statusPages.get(Integer.valueOf(statusCode));
     }
 
-
-    /**
-     * Find the ErrorPage, if any, for the named exception type.
-     *
-     * @param exceptionType The fully qualified class name of the exception type
-     *
-     * @return The ErrorPage for the named exception type, or {@code null} if
-     *         none is configured
-     *
-     * @deprecated Unused. Will be removed in Tomcat 10.
-     *             Use {@link #find(Throwable)} instead.
-     */
     @Deprecated
     public ErrorPage find(String exceptionType) {
         return exceptionPages.get(exceptionType);

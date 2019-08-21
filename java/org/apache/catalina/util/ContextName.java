@@ -19,20 +19,16 @@ package org.apache.catalina.util;
 import java.util.Locale;
 
 /**
- * 用于管理Context名称
+ * ContextName用来表示context名称，
  *
- *
- * 在tomcat中context可以划分为不同的版本号，不同版本号context对于tomcat是不同上下文
- * 比如部署在appBase目录下test##3.war可以被解析为##后的3版本号version，test根路径path
- *
- * 大多数情况除了出现特殊字符外baseName=name
+ * name 表示完整名称,部署在appBase目录下应用程序name=war包文件名=path##version
+ * baseName,表示根据name过滤特殊字符后基础名称
+ * path 表示context部署根路径，从name中解析获取
+ * version 同一个war包程序可以部署多个版本到host,只需要修改名称为test##3.war ##后3表示版本号
  *
  * baseName用于过滤name中特殊字符
- *
  * name=/test baseName=test
- *
  * name=test/ baseName=test#
- *
  * name="" | name=##test  baseName=ROOT |ROOTtest
  */
 public final class ContextName {
@@ -52,7 +48,7 @@ public final class ContextName {
     private final String version;
 
     /**
-     * Context名称，包含context全部信息
+     * Context完整名称，包含context全部信息
      **/
     private final String name;
 

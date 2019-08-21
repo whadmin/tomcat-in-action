@@ -77,50 +77,43 @@ public class ErrorReportValve extends ValveBase {
     @Override
     public void invoke(Request request, Response response) throws IOException, ServletException {
 
-        // Perform the request
+        // 调用下一个Value处理
         getNext().invoke(request, response);
 
+        /** 是否已提交此响应的输出 **/
         if (response.isCommitted()) {
+            /** 未处理以提交设置响应错误**/
             if (response.setErrorReported()) {
-                // Error wasn't previously reported but we can't write an error
-                // page because the response has already been committed. Attempt
-                // to flush any data that is still to be written to the client.
+                /** 清理response缓冲区 **/
                 try {
                     response.flushBuffer();
                 } catch (Throwable t) {
                     ExceptionUtils.handleThrowable(t);
                 }
-                // Close immediately to signal to the client that something went
-                // wrong
+                /** response 设置关闭连接发出错误**/
                 response.getCoyoteResponse().action(ActionCode.CLOSE_NOW,
                         request.getAttribute(RequestDispatcher.ERROR_EXCEPTION));
             }
             return;
         }
-
+        /** 获取异常 **/
         Throwable throwable = (Throwable) request.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
 
-        // If an async request is in progress and is not going to end once this
-        // container thread finishes, do not process any error page here.
+        /** 如果是异步处理直接返回 **/
         if (request.isAsync() && !request.isAsyncCompleting()) {
             return;
         }
 
+        /** 发生一次设置http响应编码 500**/
         if (throwable != null && !response.isError()) {
-            // Make sure that the necessary methods have been called on the
-            // response. (It is possible a component may just have set the
-            // Throwable. Tomcat won't do that but other components might.)
-            // These are safe to call at this point as we know that the response
-            // has not been committed.
             response.reset();
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
 
-        // One way or another, response.sendError() will have been called before
-        // execution reaches this point and suspended the response. Need to
-        // reverse that so this valve can write to the response.
+        /** 设置挂起的标志。**/
         response.setSuspended(false);
 
+        /** 打印错误报告 **/
         try {
             report(request, response, throwable);
         } catch (Throwable tt) {

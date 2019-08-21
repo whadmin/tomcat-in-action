@@ -27,20 +27,10 @@ import org.apache.tomcat.util.ExceptionUtils;
 
 
 /**
- * Utility class that attempts to map from a Locale to the corresponding
- * character set to be used for interpreting input text (or generating
- * output text) when the Content-Type header does not include one.  You
- * can customize the behavior of this class by modifying the mapping data
- * it loads, or by subclassing it (to change the algorithm) and then using
- * your own version for a particular web application.
- *
- * @author Craig R. McClanahan
+ * 字符映射帮助程序
+ * 默认读取/org/apache/catalina/util/CharsetMapperDefault.properties
  */
 public class CharsetMapper {
-
-
-    // ---------------------------------------------------- Manifest Constants
-
 
     /**
      * Default properties resource name.
@@ -49,11 +39,9 @@ public class CharsetMapper {
       "/org/apache/catalina/util/CharsetMapperDefault.properties";
 
 
-    // ---------------------------------------------------------- Constructors
-
 
     /**
-     * Construct a new CharsetMapper using the default properties resource.
+     * 实例化CharsetMapper
      */
     public CharsetMapper() {
         this(DEFAULT_RESOURCE);
@@ -61,12 +49,7 @@ public class CharsetMapper {
 
 
     /**
-     * Construct a new CharsetMapper using the specified properties resource.
-     *
-     * @param name Name of a properties resource to be loaded
-     *
-     * @exception IllegalArgumentException if the specified properties
-     *  resource could not be loaded for any reason.
+     * 实例化CharsetMapper
      */
     public CharsetMapper(String name) {
         try (InputStream stream = this.getClass().getResourceAsStream(name)) {
@@ -78,27 +61,9 @@ public class CharsetMapper {
     }
 
 
-    // ---------------------------------------------------- Instance Variables
-
-
-    /**
-     * The mapping properties that have been initialized from the specified or
-     * default properties resource.
-     */
     private Properties map = new Properties();
 
 
-    // ------------------------------------------------------- Public Methods
-
-
-    /**
-     * Calculate the name of a character set to be assumed, given the specified
-     * Locale and the absence of a character set specified as part of the
-     * content type header.
-     *
-     * @param locale The locale for which to calculate a character set
-     * @return the charset name
-     */
     public String getCharset(Locale locale) {
         // Match full language_country_variant first, then language_country,
         // then language only
@@ -113,16 +78,6 @@ public class CharsetMapper {
         return (charset);
     }
 
-
-    /**
-     * The deployment descriptor can have a
-     * locale-encoding-mapping-list element which describes the
-     * webapp's desired mapping from locale to charset.  This method
-     * gets called when processing the web.xml file for a context
-     *
-     * @param locale The locale for a character set
-     * @param charset The charset to be associated with the locale
-     */
     public void addCharsetMappingFromDeploymentDescriptor(String locale, String charset) {
         map.put(locale, charset);
     }

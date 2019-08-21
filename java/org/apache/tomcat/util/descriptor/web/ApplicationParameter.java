@@ -22,25 +22,35 @@ import java.io.Serializable;
 
 
 /**
- * Representation of a context initialization parameter that is configured
- * in the server configuration file, rather than the application deployment
- * descriptor.  This is convenient for establishing default values (which
- * may be configured to allow application overrides or not) without having
- * to modify the application deployment descriptor itself.
- *
- * @author Craig R. McClanahan
+ * 描述Servlet规定中web.xml定义应用程序参数集
+ *  <context-param>
+ *             <param-name>url</param-name>
+ *             <param-value>jdbc:mysql://localhost:3306/test</param-value>
+ * </context-param>
  */
 public class ApplicationParameter implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    // ------------------------------------------------------------- Properties
-
+    /**
+     * context参数名称
+     */
+    private String name = null;
 
     /**
-     * The description of this environment entry.
+     * context参数值
+     */
+    private String value = null;
+
+    /**
+     * context 描述符
      */
     private String description = null;
+
+    /**
+     * 是否重新描述信息
+     */
+    private boolean override = true;
 
     public String getDescription() {
         return (this.description);
@@ -50,12 +60,6 @@ public class ApplicationParameter implements Serializable {
         this.description = description;
     }
 
-
-    /**
-     * The name of this application parameter.
-     */
-    private String name = null;
-
     public String getName() {
         return (this.name);
     }
@@ -63,13 +67,6 @@ public class ApplicationParameter implements Serializable {
     public void setName(String name) {
         this.name = name;
     }
-
-
-    /**
-     * Does this application parameter allow overrides by the application
-     * deployment descriptor?
-     */
-    private boolean override = true;
 
     public boolean getOverride() {
         return (this.override);
@@ -79,12 +76,6 @@ public class ApplicationParameter implements Serializable {
         this.override = override;
     }
 
-
-    /**
-     * The value of this application parameter.
-     */
-    private String value = null;
-
     public String getValue() {
         return (this.value);
     }
@@ -93,12 +84,6 @@ public class ApplicationParameter implements Serializable {
         this.value = value;
     }
 
-    // --------------------------------------------------------- Public Methods
-
-
-    /**
-     * Return a String representation of this object.
-     */
     @Override
     public String toString() {
 

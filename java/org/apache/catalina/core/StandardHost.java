@@ -68,17 +68,20 @@ public class StandardHost extends ContainerBase implements Host {
     private final Object aliasesLock = new Object();
 
     /**
-     * tomcat存放web应用程序相对路径或绝对路径，如果是相对路径则完整路径为$catalinaHome/appBase
+     * host组件存放web应用程序,或静态资源文件相对路径或绝对路径，如果是相对路径则完整路径为$catalinaHome/appBase
      */
     private String appBase = "webapps";
 
     /**
-     * tomcat存放web应用程序的目录文件对象
+     * host组件部署web应用程序,或静态资源文件的根的目录文件
+     * 如果appBase为相对路径，appBaseFile= new File($catalinaHome/appBase)
+     * 如果appBase为相对路径，appBaseFile= new File(appBase)
      */
     private volatile File appBaseFile = null;
 
     /**
-     * host组件配置文件相对路径，配置文件路径为$catalinaBase/xmlBase
+     * host组件配置文件相对路径，完整路径为$catalinaBase/xmlBase
+     * 静态资源文件可以通过配置aa.xml，放入host配置文件目录下，部署到host
      */
     private String xmlBase = null;
 

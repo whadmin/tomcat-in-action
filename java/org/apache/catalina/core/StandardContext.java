@@ -142,7 +142,6 @@ public class StandardContext extends ContainerBase
 
     private static final Log log = LogFactory.getLog(StandardContext.class);
 
-    // ----------------------------------------------------------- Constructors
     /**
      * 实例化StandardContext，并初始化pipeline组件Basic
      */
@@ -155,354 +154,210 @@ public class StandardContext extends ContainerBase
         }
     }
 
-
-    // ----------------------------------------------------- Instance Variables
+    /* -------------------------子组件属性开始------------------------- */
 
     /**
-     * 即使目标servlet未指定@MultipartConfig或具有<multipart-config>元素，也允许解析multipart / form-data请求。
+     * 表示Web应用程序的完整资源集，
+     * WebResouceRoot表示了Web应用所以的资源集合（Class文件、Jar包以及其他资源文件），主要用于类加载器和按照路径查找资源文件。
      */
-    protected boolean allowCasualMultipartParsing = false;
+    private WebResourceRoot resources;
+    private final ReadWriteLock resourcesLock = new ReentrantReadWriteLock();
 
     /**
-     * Control whether remaining request data will be read
-     * (swallowed) even if the request violates a data size constraint.
+     * jar文件扫描组件
      */
-    private boolean swallowAbortedUploads = true;
+    private JarScanner jarScanner = null;
 
     /**
-     * The alternate deployment descriptor name.
+     * Cookie处理器子组件
      */
-    private String altDDName = null;
-
+    private CookieProcessor cookieProcessor;
 
     /**
-     * Lifecycle provider.
+     * 应用程序资源类加载组件
+     */
+    private Loader loader = null;
+
+    /**
+     * 应用程序资源类加载组件读写锁
+     */
+    private final ReadWriteLock loaderLock = new ReentrantReadWriteLock();
+
+    /**
+     * 会话管理组件
+     */
+    protected Manager manager = null;
+
+    /**
+     * 会话管理组件读写锁
+     */
+    private final ReadWriteLock managerLock = new ReentrantReadWriteLock();
+
+    /**
+     * 支持Servelt规范中ErrorPage帮助程序
+     *
+     *   <error-page>
+     *         <error-code>404</error-code>
+     *         <location>/WEB-INF/404.html</location>
+     *     </error-page>
+     *
+     *    <error-page>
+     *         <error-code>java.lang.NullPointException</error-code>
+     *         <location>/WEB-INF/NullPointException.html</location>
+     *     </error-page>
+     */
+    private final ErrorPageSupport errorPageSupport = new ErrorPageSupport();
+
+    /**
+     * 实例化对象管理器
      */
     private InstanceManager instanceManager = null;
 
 
     /**
-     * The antiResourceLocking flag for this Context.
-     */
-    private boolean antiResourceLocking = false;
-
-
-    /**
-     * The set of application listener class names configured for this
-     * application, in the order they were encountered in the resulting merged
-     * web.xml file.
-     */
-    private String applicationListeners[] = new String[0];
-
-    private final Object applicationListenersLock = new Object();
-
-    /**
-     * The set of application listeners that are required to have limited access
-     * to ServletContext methods. See Servlet 3.1 section 4.4.
-     */
-    private final Set<Object> noPluggabilityListeners = new HashSet<>();
-
-    /**
-     * The list of instantiated application event listener objects. Note that
-     * SCIs and other code may use the pluggability APIs to add listener
-     * instances directly to this list before the application starts.
-     */
-    private List<Object> applicationEventListenersList = new CopyOnWriteArrayList<>();
-
-
-    /**
-     * The set of instantiated application lifecycle listener objects. Note that
-     * SCIs and other code may use the pluggability APIs to add listener
-     * instances directly to this list before the application starts.
-     */
-    private Object applicationLifecycleListenersObjects[] =
-        new Object[0];
-
-
-    /**
-     * The ordered set of ServletContainerInitializers for this web application.
-     */
-    private Map<ServletContainerInitializer,Set<Class<?>>> initializers =
-        new LinkedHashMap<>();
-
-
-    /**
-     * The set of application parameters defined for this application.
-     */
-    private ApplicationParameter applicationParameters[] =
-        new ApplicationParameter[0];
-
-    private final Object applicationParametersLock = new Object();
-
-
-    /**
-     * The broadcaster that sends j2ee notifications.
+     * J2EE通知的广播程序
      */
     private NotificationBroadcasterSupport broadcaster = null;
 
     /**
-     * 字符集映射子组件
+     * 字符映射帮助程序
      */
     private CharsetMapper charsetMapper = null;
 
-
     /**
-     * The Java class name of the CharsetMapper class to be created.
-     */
-    private String charsetMapperClass =
-      "org.apache.catalina.util.CharsetMapper";
-
-
-    /**
-     * The URL of the XML descriptor for this context.
-     */
-    private URL configFile = null;
-
-
-    /**
-     * The "correctly configured" flag for this Context.
-     */
-    private boolean configured = false;
-
-
-    /**
-     * The security constraints for this web application.
+     * 安全相关组件
      */
     private volatile SecurityConstraint constraints[] =
             new SecurityConstraint[0];
 
     private final Object constraintsLock = new Object();
 
+    /**
+     * Web应用程序的登录配置描述符
+     */
+    private LoginConfig loginConfig = null;
+
+    /* -------------------------子组件属性结束------------------------- */
 
     /**
-     * The ServletContext implementation associated with this Context.
+     * servelt规则定义的servletContext实现
      */
     protected ApplicationContext context = null;
 
     /**
-     * The wrapped version of the associated ServletContext that is presented
-     * to listeners that are required to have limited access to ServletContext
-     * methods. See Servlet 3.1 section 4.4.
+     * 提供给侦听器的关联servletContext的封装版本
      */
     private NoPluggabilityServletContext noPluggabilityServletContext = null;
 
 
+
+    /* -------------------------JDNI相关属性开始------------------------- */
     /**
-     * Should we attempt to use cookies for session id communication?
-     */
-    private boolean cookies = true;
-
-
-    /**
-     * Should we allow the <code>ServletContext.getContext()</code> method
-     * to access the context of other web applications in this server?
-     */
-    private boolean crossContext = false;
-
-
-    /**
-     * Encoded path.
-     */
-    private String encodedPath = null;
-
-
-    /**
-     * Unencoded path for this web application.
-     */
-    private String path = null;
-
-
-    /**
-     * 将用于配置我们的类加载器
-     */
-    private boolean delegate = false;
-
-
-    private boolean denyUncoveredHttpMethods;
-
-
-    /**
-     * The display name of this web application.
-     */
-    private String displayName = null;
-
-
-    /**
-     * Override the default context xml location.
-     */
-    private String defaultContextXml;
-
-
-    /**
-     * Override the default web xml location.
-     */
-    private String defaultWebXml;
-
-
-    /**
-     * The distributable flag for this web application.
-     */
-    private boolean distributable = false;
-
-
-    /**
-     * The document root for this web application.
-     */
-    private String docBase = null;
-
-
-    private final ErrorPageSupport errorPageSupport = new ErrorPageSupport();
-
-
-    /**
-     * The set of filter configurations (and associated filter instances) we
-     * have initialized, keyed by filter name.
-     */
-    private HashMap<String, ApplicationFilterConfig> filterConfigs =
-            new HashMap<>();
-
-
-    /**
-     * The set of filter definitions for this application, keyed by
-     * filter name.
-     */
-    private HashMap<String, FilterDef> filterDefs = new HashMap<>();
-
-
-    /**
-     * The set of filter mappings for this application, in the order
-     * they were defined in the deployment descriptor with additional mappings
-     * added via the {@link ServletContext} possibly both before and after those
-     * defined in the deployment descriptor.
-     */
-    private final ContextFilterMaps filterMaps = new ContextFilterMaps();
-
-    /**
-     * Ignore annotations.
-     */
-    private boolean ignoreAnnotations = false;
-
-
-    /**
-     * 应用程序资源子组件Loader
-     */
-    private Loader loader = null;
-    private final ReadWriteLock loaderLock = new ReentrantReadWriteLock();
-
-
-    /**
-     * The login configuration descriptor for this web application.
-     */
-    private LoginConfig loginConfig = null;
-
-
-    /**
-     * The Manager implementation with which this Container is associated.
-     */
-    protected Manager manager = null;
-    private final ReadWriteLock managerLock = new ReentrantReadWriteLock();
-
-
-    /**
-     * The naming context listener for this web application.
+     * JDNI 监听器
      */
     private NamingContextListener namingContextListener = null;
 
 
     /**
-     * The naming resources for this web application.
+     * JDNI命名空间组件
      */
     private NamingResourcesImpl namingResources = null;
 
+
     /**
-     * The message destinations for this web application.
+     * JNDI使用标志
+     */
+    private boolean useNaming = true;
+
+
+    /**
+     * 关联的命名上下文的名称
+     */
+    private String namingContextName = null;
+    /* -------------------------WJDNI相关属性结束------------------------- */
+
+
+    /* -------------------------Web应用程序web.xml配置开始------------------------- */
+    /**
+     * web应用程序描述名称
+     * 对应 web.xml中  <display-name>标签
+     */
+    private String displayName = null;
+
+    /**
+     * 描述Servlet规定中web.xml定义应用程序Listeners实现类名集,其顺序与生成的合并web.xml文件中遇到的顺序相同。
+     *
+     * <listener>
+     *     <listener-class></listener-class>
+     * </listener>
+     */
+    private String applicationListeners[] = new String[0];
+
+    /**
+     * 描述Servlet规定中web.xml定义应用程序Listeners实例对象集,其顺序与生成的合并web.xml文件中遇到的顺序相同。
+     *
+     * <listener>
+     *     <listener-class></listener-class>
+     * </listener>
+     */
+    private List<Object> applicationEventListenersList = new CopyOnWriteArrayList<>();
+
+    /**
+     * applicationListeners属性操作锁对象
+     */
+    private final Object applicationListenersLock = new Object();
+
+    /**
+     * 需要具有有限访问权限的应用程序侦听器对象集，参见servlet 3.1第4.4节。
+     */
+    private final Set<Object> noPluggabilityListeners = new HashSet<>();
+
+    /**
+     * Web应用程序的消息目标
      */
     private HashMap<String, MessageDestination> messageDestinations =
-        new HashMap<>();
+            new HashMap<>();
+
+    /**
+     * WEB应用程序的Filter集 配置在web.xml中
+     *<filter>
+     *     <filter-name></filter-name>
+     *     <filter-class></filter-class>
+     * </filter>
+     */
+    private HashMap<String, FilterDef> filterDefs = new HashMap<>();
 
 
     /**
-     * The MIME mappings for this web application, keyed by extension.
+     *  Web应用程序的MIME映射,配置在web.xml中
+     *  <mime-mapping>
+     *      <extension>doc</extension>
+     *      <mime-type>application/msword</mime-type>
+     *  </mime-mapping>
      */
     private HashMap<String, String> mimeMappings = new HashMap<>();
 
 
     /**
-     * The context initialization parameters for this web application,
-     * keyed by name.
+     * Web应用程序的Context初始化参数,配置在web.xml中
+     *  <context-param>
+     *             <param-name>url</param-name>
+     *             <param-value>jdbc:mysql://localhost:3306/test</param-value>
+     *  </context-param>
      */
     private final ConcurrentMap<String, String> parameters = new ConcurrentHashMap<>();
 
 
     /**
-     * The request processing pause flag (while reloading occurs)
-     */
-    private volatile boolean paused = false;
-
-
-    /**
-     * The public identifier of the DTD for the web application deployment
-     * descriptor version we are currently parsing.  This is used to support
-     * relaxed validation rules when processing version 2.2 web.xml files.
-     */
-    private String publicId = null;
-
-
-    /**
-     * The reloadable flag for this web application.
-     */
-    private boolean reloadable = false;
-
-
-    /**
-     * Unpack WAR property.
-     */
-    private boolean unpackWAR = true;
-
-
-    /**
-     * Context level override for default {@link StandardHost#isCopyXML()}.
-     */
-    private boolean copyXML = false;
-
-
-    /**
-     * The default context override flag for this web application.
-     */
-    private boolean override = false;
-
-
-    /**
-     * The original document root for this web application.
-     */
-    private String originalDocBase = null;
-
-
-    /**
-     * The privileged flag for this web application.
-     */
-    private boolean privileged = false;
-
-
-    /**
-     * Should the next call to <code>addWelcomeFile()</code> cause replacement
-     * of any existing welcome files?  This will be set before processing the
-     * web application's deployment descriptor, so that application specified
-     * choices <strong>replace</strong>, rather than append to, those defined
-     * in the global descriptor.
-     */
-    private boolean replaceWelcomeFiles = false;
-
-
-    /**
-     * The security role mappings for this application, keyed by role
-     * name (as used within the application).
+     * 应用程序的安全角色映射
+     * <security-role>
+     *         <role-name></role-name>
+     * </security-role>
      */
     private HashMap<String, String> roleMappings = new HashMap<>();
 
-
     /**
-     * The security roles for this application, keyed by role name.
+     * 应用程序的安全角色名称数组
      */
     private String securityRoles[] = new String[0];
 
@@ -510,48 +365,21 @@ public class StandardContext extends ContainerBase
 
 
     /**
-     * The servlet mappings for this web application, keyed by
-     * matching pattern.
+     * Web应用程序的servlet映射
+     *  <servlet-mapping>
+     *         <servlet-name>configurationServletForXml</servlet-name>
+     *         <url-pattern>/configurationServletForXml</url-pattern>
+     *  </servlet-mapping>
      */
     private HashMap<String, String> servletMappings = new HashMap<>();
 
     private final Object servletMappingsLock = new Object();
 
-
     /**
-     * The session timeout (in minutes) for this web application.
-     */
-    private int sessionTimeout = 30;
-
-    /**
-     * The notification sequence number.
-     */
-    private AtomicLong sequenceNumber = new AtomicLong(0);
-
-
-    /**
-     * Set flag to true to cause the system.out and system.err to be redirected
-     * to the logger when executing a servlet.
-     */
-    private boolean swallowOutput = false;
-
-
-    /**
-     * Amount of ms that the container will wait for servlets to unload.
-     */
-    private long unloadDelay = 2000;
-
-
-    /**
-     * The watched resources for this application.
-     */
-    private String watchedResources[] = new String[0];
-
-    private final Object watchedResourcesLock = new Object();
-
-
-    /**
-     * The welcome files for this application.
+     * web应用程序的欢迎文件
+     *  <welcome-file-list>
+     *         <welcome-file>index.jsp</welcome-file>
+     *  </welcome-file-list>
      */
     private String welcomeFiles[] = new String[0];
 
@@ -559,210 +387,339 @@ public class StandardContext extends ContainerBase
 
 
     /**
-     * The set of classnames of LifecycleListeners that will be added
-     * to each newly created Wrapper by <code>createWrapper()</code>.
+     * Web应用程序部署描述符版本的DTD的公共标识符
+     */
+    private String publicId = null;
+
+    /* -------------------------Web应用程序web.xml配置结束------------------------- */
+
+    /* -------------------------Web应用程序运行相关属性开始------------------------- */
+    /**
+     * 请求处理暂停标志（重新加载时）
+     */
+    private volatile boolean paused = false;
+
+    /**
+     * Web应用程序的session超时时间（分钟）
+     */
+    private int sessionTimeout = 30;
+
+    /**
+     * 容器等待servlet卸载的毫秒数。
+     */
+    private long unloadDelay = 2000;
+
+    /**
+     * web应用程序热部署监听的资源
+     */
+    private String watchedResources[] = new String[0];
+
+    private final Object watchedResourcesLock = new Object();
+
+    /**
+     * 下一个调用应该是<code>addWelcomefile（）<code>
+     * 是否导致替换任何现有欢迎文件？这将在处理Web应用程序的部署描述符之前进行设置，以便应用程序指定的选项（而不是附加到全局描述符中定义的选项）被替换。
+     */
+    private boolean replaceWelcomeFiles = false;
+
+    /**
+     * true情况下, System.out和System.err输出将被定向到web应用日志中
+     */
+    private boolean swallowOutput = false;
+
+    /**
+     * 通知序列号。
+     */
+    private AtomicLong sequenceNumber = new AtomicLong(0);
+
+    /**
+     * 调用createWrapper()创建wrapper组件注册生命周期监听器 LifecycleListener 类名称
      */
     private String wrapperLifecycles[] = new String[0];
 
     private final Object wrapperLifecyclesLock = new Object();
 
+
     /**
-     * The set of classnames of ContainerListeners that will be added
-     * to each newly created Wrapper by <code>createWrapper()</code>.
+     * 调用createWrapper()创建wrapper组件注册容器事件监听器 ContainerListener器类名称
      */
     private String wrapperListeners[] = new String[0];
 
     private final Object wrapperListenersLock = new Object();
 
     /**
-     * The pathname to the work directory for this context (relative to
-     * the server's home if not absolute).
+     * 应用程序工作目录路径名
      */
     private String workDir = null;
 
+    /**
+     * 引擎的名称。
+     */
+    private String j2EEApplication="none";
+
+    private String j2EEServer="none";
 
     /**
-     * Java class name of the Wrapper class implementation we use.
+     * 实例StandardWrapper类名称
      */
     private String wrapperClassName = StandardWrapper.class.getName();
+
     private Class<?> wrapperClass = null;
 
-
-    /**
-     * JNDI use flag.
-     */
-    private boolean useNaming = true;
-
-
-    /**
-     * Name of the associated naming context.
-     */
-    private String namingContextName = null;
-
-
-    /**
-     * WebResourceRoot 子组件
-     * WebResouceRoot维护了Web应用所以的资源集合（Class文件、Jar包以及其他资源文件），主要用于类加载器和按照路径查找资源文件。
-     */
-    private WebResourceRoot resources;
-    private final ReadWriteLock resourcesLock = new ReentrantReadWriteLock();
-
     private long startupTime;
+
     private long startTime;
+
     private long tldScanTime;
 
     /**
-     * Name of the engine. If null, the domain is used.
+     * 逗号分隔的Servlet名称列表（如中所用 /WEB-INF/web.xml），期望资源存在。
      */
-    private String j2EEApplication="none";
-    private String j2EEServer="none";
+    private Set<String> resourceOnlyServlets = new HashSet<>();
+
+    private String requestEncoding = null;
+
+    private String responseEncoding = null;
+
+    /**
+     * Servlets 对象
+     */
+    private Set<Servlet> createdServlets = new HashSet<>();
+
+    private String webappVersion = "";
+
+    private Map<String, String> postConstructMethods = new HashMap<>();
+
+    private Map<String, String> preDestroyMethods = new HashMap<>();
+
+    private final Object namingToken = new Object();
+
+    private final AtomicLong inProgressAsyncCount = new AtomicLong(0);
+
+    /**
+     * 应用程序生命周期侦听器LifecycleListener对象集
+     */
+    private Object applicationLifecycleListenersObjects[] =
+            new Object[0];
 
 
     /**
-     * Attribute value used to turn on/off XML validation for web.xml and
-     * web-fragment.xml files.
+     * 应用程序的servletContainerInitializers的有序集
      */
-    private boolean webXmlValidation = Globals.STRICT_SERVLET_COMPLIANCE;
+    private Map<ServletContainerInitializer,Set<Class<?>>> initializers =
+            new LinkedHashMap<>();
 
 
     /**
-     * Attribute value used to turn on/off XML namespace validation
      */
-    private boolean webXmlNamespaceAware = Globals.STRICT_SERVLET_COMPLIANCE;
+    private ApplicationParameter applicationParameters[] =
+            new ApplicationParameter[0];
+    /**
+     * applicationParameters属性操作锁对象
+     */
+    private final Object applicationParametersLock = new Object();
 
 
     /**
-     * Attribute used to turn on/off the use of external entities.
+     * 字符映射帮助程序实现类名称
      */
-    private boolean xmlBlockExternal = true;
+    private String charsetMapperClass =
+            "org.apache.catalina.util.CharsetMapper";
 
 
     /**
-     * Attribute value used to turn on/off XML validation
+     * 应用程序内部定义context.xml配置路径URL,应用程序根路径/META-INF/context.xml
      */
-    private boolean tldValidation = Globals.STRICT_SERVLET_COMPLIANCE;
+    private URL configFile = null;
+
+    /**
+     * 表示Context是否“正确配置”标志。
+     */
+    private boolean configured = false;
 
 
     /**
-     * The name to use for session cookies. <code>null</code> indicates that
-     * the name is controlled by the application.
+     * 是否应该尝试使用cookie进行会话ID通信
      */
-    private String sessionCookieName;
+    private boolean cookies = true;
 
 
     /**
-     * The flag that indicates that session cookies should use HttpOnly
+     * 是否应该允许应用程序<code>servletContext.getContext()方法访问容器中context组件
      */
-    private boolean useHttpOnly = true;
+    private boolean crossContext = false;
+
+    /**
+     * 编码后context 根路径
+     */
+    private String encodedPath = null;
+
+    /**
+     * context 根路径
+     */
+    private String path = null;
+
+    /**
+     * 将用于配置我们的类加载器
+     */
+    private boolean delegate = false;
 
 
     /**
-     * The domain to use for session cookies. <code>null</code> indicates that
-     * the domain is controlled by the application.
+     * 可以用于拒绝对未覆盖的HTTP方法请求拒绝， 请求返回一个403（SC_FORBIDDEN）状态码
+     * 对应 web.xml中  <deny-uncovered-http-methods>标签，
      */
-    private String sessionCookieDomain;
+    private boolean denyUncoveredHttpMethods;
 
 
     /**
-     * The path to use for session cookies. <code>null</code> indicates that
-     * the path is controlled by the application.
+     * 默认的context.xml路径   应用程序根路径/META-INF/context.xml
      */
-    private String sessionCookiePath;
+    private String defaultContextXml;
 
 
     /**
-     * Is a / added to the end of the session cookie path to ensure browsers,
-     * particularly IE, don't send a session cookie for context /foo with
-     * requests intended for context /foobar.
+     * 默认的web.xml路径      应用程序根路径/WEB-INF/web.xml
      */
-    private boolean sessionCookiePathUsesTrailingSlash = false;
+    private String defaultWebXml;
 
 
     /**
-     * The Jar scanner to use to search for Jars that might contain
-     * configuration information such as TLDs or web-fragment.xml files.
+     * Web应用程序的可分发标志
      */
-    private JarScanner jarScanner = null;
+    private boolean distributable = false;
+
 
     /**
-     * Enables the RMI Target memory leak detection to be controlled. This is
-     * necessary since the detection can only work on Java 9 if some of the
-     * modularity checks are disabled.
+     * 文档根路径目录
+     */
+    private String docBase = null;
+
+
+    /**
+     * Web应用程序的FilterConfig集合
+     */
+    private HashMap<String, ApplicationFilterConfig> filterConfigs =
+            new HashMap<>();
+
+
+    /**
+     * 用于Context中管理filter映射的帮助程序类。
+     */
+    private final ContextFilterMaps filterMaps = new ContextFilterMaps();
+
+    /**
+     * 忽略 annotations.
+     */
+    private boolean ignoreAnnotations = false;
+    /* -------------------------Web应用程序运行相关属性结束------------------------- */
+
+    /* -------------------------Web应用程序 server.xml配置信息相关属性开始------------------------- */
+    /**
+     * 备用部署描述符的绝对路径。这将覆盖位于的默认部署描述符 /WEB-INF/web.xml
+     */
+    private String altDDName = null;
+
+
+    /**
+     * 表示Context是否启用antiResourceLocking功能
+     * 当antiResourceLocking设置为true的时候,Tomcat不会锁定应用下的任何文件
+     */
+    private boolean antiResourceLocking = false;
+
+    /**
+     * 如果在调用HttpServletRequest.getPart或HttpServletRequest.getParameter时
+     * 即使目标servlet未使用@MultipartConfig注释进行标记,Tomcat也会应自动解析multipart / form-data请求体，则设置为true
+     */
+    protected boolean allowCasualMultipartParsing = false;
+
+    /**
+     * 控制是否读取剩余的请求数据
+     * 即使请求违反了数据大小约束。
+     */
+    private boolean swallowAbortedUploads = true;
+
+    /**
+     * web应用程序是否开启热加载机制
+     * 监视更改类 /WEB-INF/classes/和/WEB-INF/lib更改，并在检测到更改时自动重新加载Web应用程序
+     */
+    private boolean reloadable = false;
+
+
+    /**
+     * 是否解压AppBase目录下war包
+     */
+    private boolean unpackWAR = true;
+
+
+    /**
+     * 如果在应用程序中定义了/META-INF/context.xml，是否要拷贝到$catalinaBase/xmlBase目录下
+     * 这里会覆盖父容器组件StandardHost配置
+     */
+    private boolean copyXML = false;
+
+
+    /**
+     * 设置为true忽略父组件继承的配置
+     */
+    private boolean override = false;
+
+
+    /**
+     * Web应用程序的原始文档目录
+     */
+    private String originalDocBase = null;
+
+    /**
+     *
+     */
+    private boolean privileged = false;
+
+    /**
+     * 启用要控制的RMI目标内存泄漏检测。这是必要的，因为只有在一些模块化检查被禁用时，检测才能在Java 9上工作。
      */
     private boolean clearReferencesRmiTargets = true;
 
     /**
-     * Should Tomcat attempt to terminate threads that have been started by the
-     * web application? Stopping threads is performed via the deprecated (for
-     * good reason) <code>Thread.stop()</code> method and is likely to result in
-     * instability. As such, enabling this should be viewed as an option of last
-     * resort in a development environment and is not recommended in a
-     * production environment. If not specified, the default value of
-     * <code>false</code> will be used.
+     * 设置clearReferencesStopThreads功能。
      */
     private boolean clearReferencesStopThreads = false;
 
     /**
-     * Should Tomcat attempt to terminate any {@link java.util.TimerThread}s
-     * that have been started by the web application? If not specified, the
-     * default value of <code>false</code> will be used.
+
      */
     private boolean clearReferencesStopTimerThreads = false;
 
     /**
-     * If an HttpClient keep-alive timer thread has been started by this web
-     * application and is still running, should Tomcat change the context class
-     * loader from the current {@link ClassLoader} to
-     * {@link ClassLoader#getParent()} to prevent a memory leak? Note that the
-     * keep-alive timer thread will stop on its own once the keep-alives all
-     * expire however, on a busy system that might not happen for some time.
+     *
      */
     private boolean clearReferencesHttpClientKeepAliveThread = true;
 
     /**
-     * Should Tomcat renew the threads of the thread pool when the application
-     * is stopped to avoid memory leaks because of uncleaned ThreadLocal
-     * variables. This also requires that the threadRenewalDelay property of the
-     * StandardThreadExecutor or ThreadPoolExecutor be set to a positive value.
+
      */
     private boolean renewThreadsWhenStoppingContext = true;
 
     /**
-     * Should Tomcat attempt to clear references to classes loaded by the web
-     * application class loader from the ObjectStreamClass caches?
+
      */
     private boolean clearReferencesObjectStreamClassCaches = true;
 
     /**
-     * Should Tomcat attempt to clear references to classes loaded by this class
-     * loader from ThreadLocals?
+     * 如果true，Tomcat尝试清除 java.lang.ThreadLocal已填充Web应用程序加载的类的变量。如果未指定，true将使用默认值。
      */
     private boolean clearReferencesThreadLocals = true;
 
     /**
-     * Should the effective web.xml be logged when the context starts?
+     *
      */
     private boolean logEffectiveWebXml = false;
 
-    private int effectiveMajorVersion = 3;
-
-    private int effectiveMinorVersion = 0;
-
-    private JspConfigDescriptor jspConfigDescriptor = null;
-
-    private Set<String> resourceOnlyServlets = new HashSet<>();
-
-    private String webappVersion = "";
 
     private boolean addWebinfClassesResources = false;
 
     private boolean fireRequestListenersOnForwards = false;
 
-    /**
-     * Servlets created via {@link ApplicationContext#createServlet(Class)} for
-     * tracking purposes.
-     */
-    private Set<Servlet> createdServlets = new HashSet<>();
 
     private boolean preemptiveAuthentication = false;
 
@@ -770,27 +727,9 @@ public class StandardContext extends ContainerBase
 
     private boolean jndiExceptionOnFailedWrite = true;
 
-    private Map<String, String> postConstructMethods = new HashMap<>();
-    private Map<String, String> preDestroyMethods = new HashMap<>();
-
     private String containerSciFilter;
 
     private Boolean failCtxIfServletStartFails;
-
-    protected static final ThreadBindingListener DEFAULT_NAMING_LISTENER = (new ThreadBindingListener() {
-        @Override
-        public void bind() {}
-        @Override
-        public void unbind() {}
-    });
-    protected ThreadBindingListener threadBindingListener = DEFAULT_NAMING_LISTENER;
-
-    private final Object namingToken = new Object();
-
-    /**
-     * Cookie处理器子组件
-     */
-    private CookieProcessor cookieProcessor;
 
     private boolean validateClientProvidedNewSessionId = true;
 
@@ -802,15 +741,82 @@ public class StandardContext extends ContainerBase
 
     private boolean dispatchersUseEncodedPaths = true;
 
-    private String requestEncoding = null;
-
-    private String responseEncoding = null;
-
     private boolean allowMultipleLeadingForwardSlashInPath = false;
 
-    private final AtomicLong inProgressAsyncCount = new AtomicLong(0);
-
     private boolean createUploadTargets = false;
+    /* -------------------------Web应用程序 server.xml配置信息相关属性结束------------------------- */
+
+
+    //其他属性
+    /**
+     * 用于打开/关闭web.xml和web-fragment.xml文件的xml验证的属性值。
+     */
+    private boolean webXmlValidation = Globals.STRICT_SERVLET_COMPLIANCE;
+
+    /**
+     * 用于打开/关闭XML命名空间验证的属性值
+     */
+    private boolean webXmlNamespaceAware = Globals.STRICT_SERVLET_COMPLIANCE;
+
+    /**
+     * 用于打开/关闭外部实体使用的属性
+     */
+    private boolean xmlBlockExternal = true;
+
+
+    /**
+     * 用于打开/关闭XML验证的属性值
+     */
+    private boolean tldValidation = Globals.STRICT_SERVLET_COMPLIANCE;
+
+
+    private int effectiveMajorVersion = 3;
+
+    private int effectiveMinorVersion = 0;
+
+    private JspConfigDescriptor jspConfigDescriptor = null;
+
+    //会话相关属性
+    /**
+     * 用于会话cookie的名称。
+     */
+    private String sessionCookieName;
+
+    /**
+     * 指示会话cookie只应使用httponly的标志
+     */
+    private boolean useHttpOnly = true;
+
+
+    /**
+     * 用于会话cookie的域。<code>null<code>表示域由应用程序控制。
+     */
+    private String sessionCookieDomain;
+
+
+    /**
+     * 用于会话cookie的路径。<code>null<code>表示路径由应用程序控制。
+     */
+    private String sessionCookiePath;
+
+
+    /**
+     * 添加到会话cookie路径的末尾，以确保浏览器（尤其是IE）不会向上下文/foo发送会话cookie，而不会向上下文/foobar发送请求。
+     */
+    private boolean sessionCookiePathUsesTrailingSlash = false;
+
+
+    protected static final ThreadBindingListener DEFAULT_NAMING_LISTENER = (new ThreadBindingListener() {
+        @Override
+        public void bind() {}
+        @Override
+        public void unbind() {}
+    });
+    protected ThreadBindingListener threadBindingListener = DEFAULT_NAMING_LISTENER;
+
+
+
+
 
 
     // ----------------------------------------------------- Context Properties
@@ -1442,13 +1448,6 @@ public class StandardContext extends ContainerBase
     }
 
 
-    /**
-     * Set the "correctly configured" flag for this Context.  This can be
-     * set to false by startup listeners that detect a fatal configuration
-     * error to avoid the application from being made available.
-     *
-     * @param configured The new correctly configured flag
-     */
     @Override
     public void setConfigured(boolean configured) {
 
@@ -2385,77 +2384,32 @@ public class StandardContext extends ContainerBase
     }
 
 
-    /**
-     * @return unpack WAR flag.
-     */
     public boolean getUnpackWAR() {
-
         return (unpackWAR);
-
     }
 
-
-    /**
-     * Unpack WAR flag mutator.
-     *
-     * @param unpackWAR <code>true</code> to unpack WARs on deployment
-     */
     public void setUnpackWAR(boolean unpackWAR) {
-
         this.unpackWAR = unpackWAR;
-
     }
 
-
-    /**
-     * Flag which indicates if bundled context.xml files should be copied to the
-     * config folder. The doesn't occur by default.
-     *
-     * @return <code>true</code> if the <code>META-INF/context.xml</code> file included
-     *     in a WAR will be copied to the host configuration base folder on deployment
-     */
     public boolean getCopyXML() {
         return copyXML;
     }
 
 
-    /**
-     * Allows copying a bundled context.xml file to the host configuration base
-     * folder on deployment.
-     *
-     * @param copyXML the new flag value
-     */
     public void setCopyXML(boolean copyXML) {
         this.copyXML = copyXML;
     }
 
 
-    /**
-     * @return the Java class name of the Wrapper implementation used
-     * for servlets registered in this Context.
-     */
     @Override
     public String getWrapperClass() {
-
         return (this.wrapperClassName);
-
     }
 
-
-    /**
-     * Set the Java class name of the Wrapper implementation used
-     * for servlets registered in this Context.
-     *
-     * @param wrapperClassName The new wrapper class name
-     *
-     * @throws IllegalArgumentException if the specified wrapper class
-     * cannot be found or is not a subclass of StandardWrapper
-     */
     @Override
     public void setWrapperClass(String wrapperClassName) {
-
         this.wrapperClassName = wrapperClassName;
-
         try {
             wrapperClass = Class.forName(wrapperClassName);
             if (!StandardWrapper.class.isAssignableFrom(wrapperClass)) {
@@ -2483,7 +2437,6 @@ public class StandardContext extends ContainerBase
 
     @Override
     public void setResources(WebResourceRoot resources) {
-
         Lock writeLock = resourcesLock.writeLock();
         writeLock.lock();
         WebResourceRoot oldResources = null;
@@ -2492,7 +2445,6 @@ public class StandardContext extends ContainerBase
                 throw new IllegalStateException
                     (sm.getString("standardContext.resourcesStart"));
             }
-
             oldResources = this.resources;
             if (oldResources == resources)
                 return;
@@ -2504,7 +2456,6 @@ public class StandardContext extends ContainerBase
             if (resources != null) {
                 resources.setContext(this);
             }
-
             support.firePropertyChange("resources", oldResources,
                     resources);
         } finally {
@@ -4583,9 +4534,7 @@ public class StandardContext extends ContainerBase
 
 
     /**
-     * Configure and initialize the set of filters for this Context.
-     * @return <code>true</code> if all filter initialization completed
-     * successfully, or <code>false</code> otherwise.
+     * 为每一个Filter实例化ApplicationFilterConfig，成功返回true
      */
     public boolean filterStart() {
 
@@ -4963,11 +4912,7 @@ public class StandardContext extends ContainerBase
 
 
     /**
-     * Start this component and implement the requirements
-     * of {@link org.apache.catalina.util.LifecycleBase#startInternal()}.
-     *
-     * @exception LifecycleException if this component detects a fatal error
-     *  that prevents this component from being used
+     * 启动模板方法实现
      */
     @Override
     protected synchronized void startInternal() throws LifecycleException {
@@ -4975,25 +4920,32 @@ public class StandardContext extends ContainerBase
         if(log.isDebugEnabled())
             log.debug("Starting " + getBaseName());
 
-        // Send j2ee.state.starting notification
+        /**  发送j2ee.state.starting通知 **/
         if (this.getObjectName() != null) {
             Notification notification = new Notification("j2ee.state.starting",
                     this.getObjectName(), sequenceNumber.getAndIncrement());
             broadcaster.sendNotification(notification);
         }
 
+        /** 设置Context是否“正确配置”标志false **/
         setConfigured(false);
         boolean ok = true;
 
-        /** 启动子组件  namingResources **/
+        /**
+         * 启动子组件namingResources
+         * namingResources表示JDNI命名空间
+         */
         if (namingResources != null) {
             namingResources.start();
         }
 
-        /** 初始化当前context组件Context临时工作目录,默认为$CATALINA-BASE/work/<Engine名称>/<Host名称>/<Context名称>。**/
+        /** 初始化当前context组件临时工作目录,默认路径为$CATALINA-BASE/work/<Engine名称>/<Host名称>/<Context名称>。**/
         postWorkDirectory();
 
-        /** 初始化当前context组件子组件WebResouceRoot,并设置到resources属性 **/
+        /**
+         * 实例化WebResouceRoot组件,并设置到resources属性
+         * WebResouceRoot表示了Web应用所以的资源集合（Class文件、Jar包以及其他资源文件），主要用于类加载器和按照路径查找资源文件。
+         */
         if (getResources() == null) {   // (1) Required by Loader
             if (log.isDebugEnabled())
                 log.debug("Configuring default Resources");
@@ -5005,25 +4957,24 @@ public class StandardContext extends ContainerBase
                 ok = false;
             }
         }
-
-        /** 启动 WebResouceRoot子组件 **/
+        /** 启动WebResouceRoot子组件 **/
         if (ok) {
             resourcesStart();
         }
 
-        /** 初始化当前context组件子组件loader,并设置到loader属性 **/
+        /** 实例化子组件loader,并设置到loader属性 **/
         if (getLoader() == null) {
             WebappLoader webappLoader = new WebappLoader(getParentClassLoader());
             webappLoader.setDelegate(getDelegate());
             setLoader(webappLoader);
         }
 
-        /** 初始化并设置Cookie处理器子组件 **/
+        /** 实例化子组件cookieProcessor,并设置到cookieProcessor属性 **/
         if (cookieProcessor == null) {
             cookieProcessor = new Rfc6265CookieProcessor();
         }
 
-        /** 初始化并设置字符集映射子组件 **/
+        /** 实例化子组件charsetMapper,并设置到charsetMapper属性 **/
         getCharsetMapper();
 
 
@@ -5067,7 +5018,7 @@ public class StandardContext extends ContainerBase
 
         try {
             if (ok) {
-                // Start our subordinate components, if any
+                /** 启动loader组件 **/
                 Loader loader = getLoader();
                 if (loader instanceof Lifecycle) {
                     ((Lifecycle) loader).start();
@@ -5088,25 +5039,21 @@ public class StandardContext extends ContainerBase
                 setClassLoaderProperty("clearReferencesThreadLocals",
                         getClearReferencesThreadLocals());
 
-                // By calling unbindThread and bindThread in a row, we setup the
-                // current Thread CCL to be the webapp classloader
+                /** 解除线程绑定并还原指定的上下文类加载器。 **/
                 unbindThread(oldCCL);
+                /** 绑定当前线程，既用于cl目的 **/
                 oldCCL = bindThread();
 
-                // Initialize logger again. Other components might have used it
-                // too early, so it should be reset.
+                /** 初始化logger,并设置属性logger **/
                 logger = null;
                 getLogger();
 
+                /** 启动Realm组件**/
                 Realm realm = getRealmInternal();
                 if(null != realm) {
                     if (realm instanceof Lifecycle) {
                         ((Lifecycle) realm).start();
                     }
-
-                    // Place the CredentialHandler into the ServletContext so
-                    // applications can have access to it. Wrap it in a "safe"
-                    // handler so application's can't modify it.
                     CredentialHandler safeHandler = new CredentialHandler() {
                         @Override
                         public boolean matches(String inputCredentials, String storedCredentials) {
@@ -5121,23 +5068,22 @@ public class StandardContext extends ContainerBase
                     context.setAttribute(Globals.CREDENTIAL_HANDLER, safeHandler);
                 }
 
-                // Notify our interested LifecycleListeners
+                /** 触发CONFIGURE_START_EVENT事件 **/
                 fireLifecycleEvent(Lifecycle.CONFIGURE_START_EVENT, null);
 
-                // Start our child containers, if not already started
+                /** 启动Context所有子组件Wrapper **/
                 for (Container child : findChildren()) {
                     if (!child.getState().isAvailable()) {
                         child.start();
                     }
                 }
 
-                // Start the Valves in our pipeline (including the basic),
-                // if any
+                /** 启动pipeline子组件Wrapper **/
                 if (pipeline instanceof Lifecycle) {
                     ((Lifecycle) pipeline).start();
                 }
 
-                // Acquire clustered manager
+                /** 实例化子组件manager **/
                 Manager contextManager = null;
                 Manager manager = getManager();
                 if (manager == null) {
@@ -5157,8 +5103,7 @@ public class StandardContext extends ContainerBase
                         contextManager = new StandardManager();
                     }
                 }
-
-                // Configure default manager if none was specified
+                /** 将实例化并设置到manager属性 **/
                 if (contextManager != null) {
                     if (log.isDebugEnabled()) {
                         log.debug(sm.getString("standardContext.manager",
@@ -5166,10 +5111,8 @@ public class StandardContext extends ContainerBase
                     }
                     setManager(contextManager);
                 }
-
+                /** 将实例化manager组件注册到集群组件**/
                 if (manager!=null && (getCluster() != null) && distributable) {
-                    //let the cluster know that there is a context that is distributable
-                    //and that it has its own manager
                     getCluster().registerManager(manager);
                 }
             }
@@ -5179,11 +5122,12 @@ public class StandardContext extends ContainerBase
                 ok = false;
             }
 
-            // We put the resources into the servlet context
+            /** 将WebResourceRoot 注册到ServletContext  **/
             if (ok)
                 getServletContext().setAttribute
                     (Globals.RESOURCES_ATTR, getResources());
 
+            /** 实例管理器instanceManager，用于创建对象实例，如Servlet、Filter等。 **/
             if (ok ) {
                 if (getInstanceManager() == null) {
                     javax.naming.Context context = null;
@@ -5195,21 +5139,22 @@ public class StandardContext extends ContainerBase
                     setInstanceManager(new DefaultInstanceManager(context,
                             injectionMap, this, this.getClass().getClassLoader()));
                 }
+                /** 将InstanceManager 注册到ServletContext  **/
                 getServletContext().setAttribute(
                         InstanceManager.class.getName(), getInstanceManager());
                 InstanceManagerBindings.bind(getLoader().getClassLoader(), getInstanceManager());
             }
 
-            // Create context attributes that will be required
+            /** 将 JarScanner 注册到ServletContext  **/
             if (ok) {
                 getServletContext().setAttribute(
                         JarScanner.class.getName(), getJarScanner());
             }
 
-            // Set up the context init params
+            /** 合并设置Context初始化参数 **/
             mergeParameters();
 
-            // Call ServletContainerInitializers
+            /** 调用servletContainerInitializers  **/
             for (Map.Entry<ServletContainerInitializer, Set<Class<?>>> entry :
                 initializers.entrySet()) {
                 try {
@@ -5222,7 +5167,7 @@ public class StandardContext extends ContainerBase
                 }
             }
 
-            // Configure and call application event listeners
+            /** 配置和调用应用程序事件侦听器 **/
             if (ok) {
                 if (!listenerStart()) {
                     log.error(sm.getString("standardContext.listenerFail"));
@@ -5230,15 +5175,17 @@ public class StandardContext extends ContainerBase
                 }
             }
 
-            // Check constraints for uncovered HTTP methods
-            // Needs to be after SCIs and listeners as they may programmatically
-            // change constraints
+            /**
+             * 检查未覆盖的HTTP方法的约束
+             * 需要关注SCI和侦听器，因为它们可能以编程方式
+             * 更改约束
+             */
             if (ok) {
                 checkConstraintsForUncoveredMethods(findConstraints());
             }
 
+            /** 启动Manager组件  **/
             try {
-                // Start manager
                 Manager manager = getManager();
                 if (manager instanceof Lifecycle) {
                     ((Lifecycle) manager).start();
@@ -5248,7 +5195,7 @@ public class StandardContext extends ContainerBase
                 ok = false;
             }
 
-            // Configure and call application filters
+            /** 为每一个Filter实例化ApplicationFilterConfig，成功返回true **/
             if (ok) {
                 if (!filterStart()) {
                     log.error(sm.getString("standardContext.filterFail"));
@@ -5256,7 +5203,7 @@ public class StandardContext extends ContainerBase
                 }
             }
 
-            // Load and initialize all "load on startup" servlets
+            /** 加载并初始化所有“启动时加载”servlet **/
             if (ok) {
                 if (!loadOnStartup(findChildren())){
                     log.error(sm.getString("standardContext.servletFail"));
@@ -5264,14 +5211,14 @@ public class StandardContext extends ContainerBase
                 }
             }
 
-            // Start ContainerBackgroundProcessor thread
+            /** 启动线程，定时处理当前容器的所有子容器内backgroundProcess方法 **/
             super.threadStart();
         } finally {
-            // Unbinding thread
+            /** 解除线程绑定并还原指定的上下文类加载器。 **/
             unbindThread(oldCCL);
         }
 
-        // Set available status depending upon startup success
+        /** 根据启动成功设置可用状态 **/
         if (ok) {
             if (log.isDebugEnabled())
                 log.debug("Starting completed");
@@ -5281,7 +5228,7 @@ public class StandardContext extends ContainerBase
 
         startTime=System.currentTimeMillis();
 
-        // Send j2ee.state.running notification
+        /**发送j2ee.state.running通知 **/
         if (ok && (this.getObjectName() != null)) {
             Notification notification =
                 new Notification("j2ee.state.running", this.getObjectName(),
@@ -5289,13 +5236,13 @@ public class StandardContext extends ContainerBase
             broadcaster.sendNotification(notification);
         }
 
-        // The WebResources implementation caches references to JAR files. On
-        // some platforms these references may lock the JAR files. Since web
-        // application start is likely to have read from lots of JARs, trigger
-        // a clean-up now.
+        //WebResources实现缓存对JAR文件的引用。论
+        //某些平台这些引用可能会锁定JAR文件。自Web
+        //应用程序启动可能读取了大量jar和trigger
+        //现在进行清理。
         getResources().gc();
 
-        // Reinitializing if something went wrong
+        /** 如果出现问题，重新初始化 **/
         if (!ok) {
             setState(LifecycleState.FAILED);
         } else {
@@ -5790,10 +5737,7 @@ public class StandardContext extends ContainerBase
 
 
     /**
-     * Bind current thread, both for CL purposes and for JNDI ENC support
-     * during : startup, shutdown and reloading of the context.
-     *
-     * @return the previous context class loader
+     * 绑定当前线程，既用于cl目的，也用于jndi-enc支持：启动、关闭和重新加载上下文
      */
     protected ClassLoader bindThread() {
 
@@ -5813,16 +5757,12 @@ public class StandardContext extends ContainerBase
 
 
     /**
-     * Unbind thread and restore the specified context classloader.
-     *
-     * @param oldContextClassLoader the previous classloader
+     * 解除线程绑定并还原指定的上下文类加载器。
      */
     protected void unbindThread(ClassLoader oldContextClassLoader) {
-
         if (isUseNaming()) {
             ContextBindings.unbindThread(this, getNamingToken());
         }
-
         unbind(false, oldContextClassLoader);
     }
 
@@ -6262,16 +6202,19 @@ public class StandardContext extends ContainerBase
         return result.toString();
     }
 
+    /**
+     * 组件初始化模板实现
+     */
     @Override
     protected void initInternal() throws LifecycleException {
         super.initInternal();
 
-        // Register the naming resources
+        /** JNDI服务初始化 **/
         if (namingResources != null) {
             namingResources.init();
         }
 
-        // Send j2ee.object.created notification
+        /** 发送j2ee.object.created通知 **/
         if (this.getObjectName() != null) {
             Notification notification = new Notification("j2ee.object.created",
                     this.getObjectName(), sequenceNumber.getAndIncrement());
@@ -6279,9 +6222,17 @@ public class StandardContext extends ContainerBase
         }
     }
 
+    /**
+     * 添加 NotificationListener监听器
+     */
+    @Override
+    public void addNotificationListener(NotificationListener listener,
+                                        NotificationFilter filter, Object object) throws IllegalArgumentException {
+        broadcaster.addNotificationListener(listener,filter,object);
+    }
 
-    /* Remove a JMX notificationListener
-     * @see javax.management.NotificationEmitter#removeNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object)
+    /**
+     * 删除notificationListener监听器
      */
     @Override
     public void removeNotificationListener(NotificationListener listener,
@@ -6289,12 +6240,22 @@ public class StandardContext extends ContainerBase
         broadcaster.removeNotificationListener(listener,filter,object);
     }
 
+
+    /**
+     * 删除notificationListener监听器
+     */
+    @Override
+    public void removeNotificationListener(NotificationListener listener)
+            throws ListenerNotFoundException {
+        broadcaster.removeNotificationListener(listener);
+    }
+
+
+
     private MBeanNotificationInfo[] notificationInfo;
 
-    /* Get JMX Broadcaster Info
-     * @TODO use StringManager for international support!
-     * @TODO This two events we not send j2ee.state.failed and j2ee.attribute.changed!
-     * @see javax.management.NotificationBroadcaster#getNotificationInfo()
+    /**
+     * 获取 broadcaster信息
      */
     @Override
     public MBeanNotificationInfo[] getNotificationInfo() {
@@ -6334,31 +6295,13 @@ public class StandardContext extends ContainerBase
             };
 
         }
-
         return notificationInfo;
     }
 
 
-    /**
-     * Add a JMX NotificationListener
-     * @see javax.management.NotificationBroadcaster#addNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object)
-     */
-    @Override
-    public void addNotificationListener(NotificationListener listener,
-            NotificationFilter filter, Object object) throws IllegalArgumentException {
-        broadcaster.addNotificationListener(listener,filter,object);
-    }
 
 
-    /**
-     * Remove a JMX-NotificationListener
-     * @see javax.management.NotificationBroadcaster#removeNotificationListener(javax.management.NotificationListener)
-     */
-    @Override
-    public void removeNotificationListener(NotificationListener listener)
-    throws ListenerNotFoundException {
-        broadcaster.removeNotificationListener(listener);
-    }
+
 
 
     // ------------------------------------------------------------- Attributes

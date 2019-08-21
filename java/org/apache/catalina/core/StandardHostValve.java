@@ -51,9 +51,7 @@ final class StandardHostValve extends ValveBase {
 
     private static final Log log = LogFactory.getLog(StandardHostValve.class);
 
-    // Saves a call to getClassLoader() on very request. Under high load these
-    // calls took just long enough to appear as a hot spot (although a very
-    // minor one) in a profiler.
+
     private static final ClassLoader MY_CLASSLOADER =
             StandardHostValve.class.getClassLoader();
 
@@ -73,33 +71,19 @@ final class StandardHostValve extends ValveBase {
         }
     }
 
-    //------------------------------------------------------ Constructor
     public StandardHostValve() {
         super(true);
     }
 
-
-    // ----------------------------------------------------- Instance Variables
-
     /**
-     * The string manager for this package.
+     * 日志格式管理器
      */
     private static final StringManager sm =
         StringManager.getManager(Constants.Package);
 
 
-    // --------------------------------------------------------- Public Methods
-
     /**
-     * Select the appropriate child Context to process this request,
-     * based on the specified request URI.  If no matching Context can
-     * be found, return an appropriate HTTP error.
-     *
-     * @param request Request to be processed
-     * @param response Response to be produced
-     *
-     * @exception IOException if an input/output error occurred
-     * @exception ServletException if a servlet error occurred
+     * 处理请求
      */
     @Override
     public final void invoke(Request request, Response response)
@@ -110,28 +94,23 @@ final class StandardHostValve extends ValveBase {
         if (context == null) {
             return;
         }
-
+        /** 如果当前请求支持异步，则检查当前容器组件Pipeline管道种所有Value阀是否都支持异步，如果不是则重置为false **/
         if (request.isAsyncSupported()) {
             request.setAsyncSupported(context.getPipeline().isAsyncSupported());
         }
 
+        /** servlet是否异步处理**/
         boolean asyncAtStart = request.isAsync();
 
         try {
             context.bind(Globals.IS_SECURITY_ENABLED, MY_CLASSLOADER);
 
+            /** 如果不是否异步处理，且 context触发ServletRequestEvent事件的监听器没有发生异常直接返回 **/
             if (!asyncAtStart && !context.fireRequestInitEvent(request.getRequest())) {
-                // Don't fire listeners during async processing (the listener
-                // fired for the request that called startAsync()).
-                // If a request init listener throws an exception, the request
-                // is aborted.
                 return;
             }
 
-            // Ask this Context to process this request. Requests that are
-            // already in error must have been routed here to check for
-            // application defined error pages so DO NOT forward them to the the
-            // application for processing.
+            /** 如果响应发生了错误，但还没由报告，则调用context重新处理 **/
             try {
                 if (!response.isErrorReportRequired()) {
                     context.getPipeline().getFirst().invoke(request, response);
@@ -139,46 +118,42 @@ final class StandardHostValve extends ValveBase {
             } catch (Throwable t) {
                 ExceptionUtils.handleThrowable(t);
                 container.getLogger().error("Exception Processing " + request.getRequestURI(), t);
-                // If a new error occurred while trying to report a previous
-                // error allow the original error to be reported.
                 if (!response.isErrorReportRequired()) {
                     request.setAttribute(RequestDispatcher.ERROR_EXCEPTION, t);
                     throwable(request, response, t);
                 }
             }
 
-            // Now that the request/response pair is back under container
-            // control lift the suspension so that the error handling can
-            // complete and/or the container can flush any remaining data
+            /** 设置挂起的标志。 **/
             response.setSuspended(false);
 
+            /** 获取异常 **/
             Throwable t = (Throwable) request.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
 
-            // Protect against NPEs if the context was destroyed during a
-            // long running request.
+            /** 如果context组件处于非运行状态直接返回 **/
             if (!context.getState().isAvailable()) {
                 return;
             }
 
-            // Look for (and render if found) an application level error page
+            /** 如果响应发生了错误，但还没由报告 **/
             if (response.isErrorReportRequired()) {
+                /** 获取到异常 **/
                 if (t != null) {
+                    /** 抛出异常 **/
                     throwable(request, response, t);
                 } else {
                     status(request, response);
                 }
             }
-
+            /** servlet不是否异步处理**/
             if (!request.isAsync() && !asyncAtStart) {
+                /** 触发ServletRequestEvent事件 **/
                 context.fireRequestDestroyEvent(request.getRequest());
             }
         } finally {
-            // Access a session (if present) to update last accessed time, based
-            // on a strict interpretation of the specification
             if (ACCESS_SESSION) {
                 request.getSession(false);
             }
-
             context.unbind(Globals.IS_SECURITY_ENABLED, MY_CLASSLOADER);
         }
     }
@@ -329,14 +304,9 @@ final class StandardHostValve extends ValveBase {
                 }
             }
         } else {
-            // A custom error-page has not been defined for the exception
-            // that was thrown during request processing. Check if an
-            // error-page for error code 500 was specified and if so,
-            // send that page back as the response.
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            // The response is an error
-            response.setError();
 
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.setError();
             status(request, response);
         }
     }

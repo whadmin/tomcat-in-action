@@ -26,25 +26,57 @@ import org.apache.tomcat.util.res.StringManager;
 
 
 /**
- * Representation of a filter definition for a web application, as represented
- * in a <code>&lt;filter&gt;</code> element in the deployment descriptor.
- *
- * @author Craig R. McClanahan
+ * 描述Servlet规范中Filter
  */
 public class FilterDef implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /** 日志关联程序 **/
     private static final StringManager sm =
         StringManager.getManager(Constants.PACKAGE_NAME);
 
-    // ------------------------------------------------------------- Properties
-
+    /**
+     *  Filter名称<filter-name></filter-name>
+     */
+    private String filterName = null;
 
     /**
-     * The description of this filter.
+     * Filter描述名称  <display-name></display-name>
+     */
+    private String displayName = null;
+
+    /**
+     * Filter描述符 <description></description>
      */
     private String description = null;
+
+    /**
+     * servelt中定义Filter实例对象
+     */
+    private transient Filter filter = null;
+
+    /**
+     * 实现FilterJava类的完全限定名
+     */
+    private String filterClass = null;
+
+    /**
+     * Filter初始化参数
+     * <init-param></init-param>
+     * <init-value></init-value>
+     */
+    private final Map<String, String> parameters = new HashMap<>();
+
+    /**
+     * Filter关联的大图标
+     */
+    private String largeIcon = null;
+
+    /**
+     * Filter关联的小图标
+     */
+    private String smallIcon = null;
 
     public String getDescription() {
         return (this.description);
@@ -54,12 +86,6 @@ public class FilterDef implements Serializable {
         this.description = description;
     }
 
-
-    /**
-     * The display name of this filter.
-     */
-    private String displayName = null;
-
     public String getDisplayName() {
         return (this.displayName);
     }
@@ -67,12 +93,6 @@ public class FilterDef implements Serializable {
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
     }
-
-
-    /**
-     * The filter instance associated with this definition
-     */
-    private transient Filter filter = null;
 
     public Filter getFilter() {
         return filter;
@@ -82,12 +102,6 @@ public class FilterDef implements Serializable {
         this.filter = filter;
     }
 
-
-    /**
-     * The fully qualified name of the Java class that implements this filter.
-     */
-    private String filterClass = null;
-
     public String getFilterClass() {
         return (this.filterClass);
     }
@@ -95,13 +109,6 @@ public class FilterDef implements Serializable {
     public void setFilterClass(String filterClass) {
         this.filterClass = filterClass;
     }
-
-
-    /**
-     * The name of this filter, which must be unique among the filters
-     * defined for a particular web application.
-     */
-    private String filterName = null;
 
     public String getFilterName() {
         return (this.filterName);
@@ -115,12 +122,6 @@ public class FilterDef implements Serializable {
         this.filterName = filterName;
     }
 
-
-    /**
-     * The large icon associated with this filter.
-     */
-    private String largeIcon = null;
-
     public String getLargeIcon() {
         return (this.largeIcon);
     }
@@ -129,24 +130,9 @@ public class FilterDef implements Serializable {
         this.largeIcon = largeIcon;
     }
 
-
-    /**
-     * The set of initialization parameters for this filter, keyed by
-     * parameter name.
-     */
-    private final Map<String, String> parameters = new HashMap<>();
-
     public Map<String, String> getParameterMap() {
-
         return (this.parameters);
-
     }
-
-
-    /**
-     * The small icon associated with this filter.
-     */
-    private String smallIcon = null;
 
     public String getSmallIcon() {
         return (this.smallIcon);
@@ -166,35 +152,20 @@ public class FilterDef implements Serializable {
         this.asyncSupported = asyncSupported;
     }
 
-
-    // --------------------------------------------------------- Public Methods
-
-
     /**
-     * Add an initialization parameter to the set of parameters associated
-     * with this filter.
-     *
-     * @param name The initialization parameter name
-     * @param value The initialization parameter value
+     * Filter添加初始化参数
+     * @param name 名称
+     * @param value 值
      */
     public void addInitParameter(String name, String value) {
-
         if (parameters.containsKey(name)) {
-            // The spec does not define this but the TCK expects the first
-            // definition to take precedence
             return;
         }
         parameters.put(name, value);
-
     }
 
-
-    /**
-     * Render a String representation of this object.
-     */
     @Override
     public String toString() {
-
         StringBuilder sb = new StringBuilder("FilterDef[");
         sb.append("filterName=");
         sb.append(this.filterName);
@@ -202,8 +173,5 @@ public class FilterDef implements Serializable {
         sb.append(this.filterClass);
         sb.append("]");
         return (sb.toString());
-
     }
-
-
 }

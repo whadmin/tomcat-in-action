@@ -80,9 +80,8 @@ public final class Bootstrap {
         /** 根据Globals.CATALINA_HOME_PROP键，从系统属性中获取tomcat安装目录路径**/
         String home = System.getProperty(Globals.CATALINA_HOME_PROP);
 
-
+        /** 判断系统属性获取安装目录路径home对应的文件是否存在，如果存在设置到属性homeFile **/
         File homeFile = null;
-
         if (home != null) {
             File f = new File(home);
             try {
@@ -94,8 +93,7 @@ public final class Bootstrap {
         }
 
         /**
-         * 如果从系统属性中获取tomcat安装目录路径失败
-         * 尝试以userDir/bootstrap.jar上级目录作为tomcat安装目录
+         * 尝试以userDir/bootstrap.jar/..目录作为tomcat安装目录文件路径，并判断该路径文件是否存在，如果存在设置到属性homeFile
          * */
         if (homeFile == null) {
             File bootstrapJar = new File(userDir, "bootstrap.jar");
@@ -112,8 +110,7 @@ public final class Bootstrap {
         }
 
         /**
-         * 如果上述获取tomcat安装目录路径失败
-         * 以当前用户目录作为tomcat安装目录路
+         * 尝试以userDir目录作为tomcat安装目录文件路径，并判断该路径文件是否存在，如果存在设置到属性homeFile
          **/
         if (homeFile == null) {
             File f = new File(userDir);
@@ -125,7 +122,7 @@ public final class Bootstrap {
             }
         }
 
-        /** 设置tomcat安装目录**/
+        /** 设置homeFile文件作为tomcat安装目录**/
         catalinaHomeFile = homeFile;
 
         /** 重新设置系统属性 Globals.CATALINA_HOME_PROP  **/

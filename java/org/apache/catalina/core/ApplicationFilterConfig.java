@@ -49,9 +49,7 @@ import org.apache.tomcat.util.res.StringManager;
 
 
 /**
- * Implementation of a <code>javax.servlet.FilterConfig</code> useful in
- * managing the filter instances instantiated when a web application
- * is first started.
+ * 描述Servlet规范中FilterConfig
  *
  * @author Craig R. McClanahan
  */
@@ -62,45 +60,50 @@ public final class ApplicationFilterConfig implements FilterConfig, Serializable
     static final StringManager sm =
         StringManager.getManager(Constants.Package);
 
-    private final Log log = LogFactory.getLog(ApplicationFilterConfig.class); // must not be static
+    /**
+     * 日志组件
+     */
+    private final Log log = LogFactory.getLog(ApplicationFilterConfig.class);
 
     /**
-     * Empty String collection to serve as the basis for empty enumerations.
+     * 空字符串集合
      */
     private static final List<String> emptyString = Collections.emptyList();
 
-    // ----------------------------------------------------------- Constructors
+    /**
+     * 关联的Context
+     */
+    private final transient Context context;
+
+    /**
+     * 关联的Filter实例对象
+     */
+    private transient Filter filter = null;
+
+    /**
+     * 关联的Filter描述对象
+     */
+    private final FilterDef filterDef;
+
+    /**
+     * 构造实例管理器
+     */
+    private transient InstanceManager instanceManager;
+
+    /**
+     * JMX ObjectName
+     */
+    private ObjectName oname;
 
 
     /**
-     * Construct a new ApplicationFilterConfig for the specified filter
-     * definition.
-     *
-     * @param context The context with which we are associated
-     * @param filterDef Filter definition for which a FilterConfig is to be
-     *  constructed
-     *
-     * @exception ClassCastException if the specified class does not implement
-     *  the <code>javax.servlet.Filter</code> interface
-     * @exception ClassNotFoundException if the filter class cannot be found
-     * @exception IllegalAccessException if the filter class cannot be
-     *  publicly instantiated
-     * @exception InstantiationException if an exception occurs while
-     *  instantiating the filter object
-     * @exception ServletException if thrown by the filter's init() method
-     * @throws NamingException
-     * @throws InvocationTargetException
-     * @throws SecurityException
-     * @throws NoSuchMethodException
-     * @throws IllegalArgumentException
+     * 实例化ApplicationFilterConfig
      */
     ApplicationFilterConfig(Context context, FilterDef filterDef)
             throws ClassCastException, ClassNotFoundException, IllegalAccessException,
             InstantiationException, ServletException, InvocationTargetException, NamingException,
             IllegalArgumentException, NoSuchMethodException, SecurityException {
-
         super();
-
         this.context = context;
         this.filterDef = filterDef;
         // Allocate a new filter instance if necessary
@@ -113,42 +116,8 @@ public final class ApplicationFilterConfig implements FilterConfig, Serializable
         }
     }
 
-
-    // ----------------------------------------------------- Instance Variables
-
-
     /**
-     * The Context with which we are associated.
-     */
-    private final transient Context context;
-
-
-    /**
-     * The application Filter we are configured for.
-     */
-    private transient Filter filter = null;
-
-
-    /**
-     * The <code>FilterDef</code> that defines our associated Filter.
-     */
-    private final FilterDef filterDef;
-
-    /**
-     * the InstanceManager used to create and destroy filter instances.
-     */
-    private transient InstanceManager instanceManager;
-
-    /**
-     * JMX registration name
-     */
-    private ObjectName oname;
-
-    // --------------------------------------------------- FilterConfig Methods
-
-
-    /**
-     * Return the name of the filter we are configuring.
+     * 获取Filter名称<filter-name></filter-name>
      */
     @Override
     public String getFilterName() {
@@ -156,56 +125,50 @@ public final class ApplicationFilterConfig implements FilterConfig, Serializable
     }
 
     /**
-     * @return The class of the filter we are configuring.
+     * 获取实现FilterJava类的完全限定名
      */
     public String getFilterClass() {
         return filterDef.getFilterClass();
     }
 
     /**
-     * Return a <code>String</code> containing the value of the named
-     * initialization parameter, or <code>null</code> if the parameter
-     * does not exist.
-     *
-     * @param name Name of the requested initialization parameter
+     * 获取Filter指定初始化参数key对应的值
      */
     @Override
     public String getInitParameter(String name) {
-
         Map<String,String> map = filterDef.getParameterMap();
         if (map == null) {
             return (null);
         }
-
         return map.get(name);
-
     }
 
-
     /**
-     * Return an <code>Enumeration</code> of the names of the initialization
-     * parameters for this Filter.
+     * 获取Filter初始化参数key集合
      */
     @Override
     public Enumeration<String> getInitParameterNames() {
         Map<String,String> map = filterDef.getParameterMap();
-
         if (map == null) {
             return Collections.enumeration(emptyString);
         }
-
         return Collections.enumeration(map.keySet());
+    }
+
+    /**
+     * 获取Filter初始化参数
+     */
+    public Map<String, String> getFilterInitParameterMap() {
+        return Collections.unmodifiableMap(filterDef.getParameterMap());
     }
 
 
     /**
-     * Return the ServletContext of our associated web application.
+     * 获取ServletContext
      */
     @Override
     public ServletContext getServletContext() {
-
         return this.context.getServletContext();
-
     }
 
 
@@ -214,7 +177,6 @@ public final class ApplicationFilterConfig implements FilterConfig, Serializable
      */
     @Override
     public String toString() {
-
         StringBuilder sb = new StringBuilder("ApplicationFilterConfig[");
         sb.append("name=");
         sb.append(filterDef.getFilterName());
@@ -225,48 +187,21 @@ public final class ApplicationFilterConfig implements FilterConfig, Serializable
 
     }
 
-    // --------------------------------------------------------- Public Methods
-
-    public Map<String, String> getFilterInitParameterMap() {
-        return Collections.unmodifiableMap(filterDef.getParameterMap());
-    }
-
-    // -------------------------------------------------------- Package Methods
-
-
     /**
-     * Return the application Filter we are configured for.
-     *
-     * @exception ClassCastException if the specified class does not implement
-     *  the <code>javax.servlet.Filter</code> interface
-     * @exception ClassNotFoundException if the filter class cannot be found
-     * @exception IllegalAccessException if the filter class cannot be
-     *  publicly instantiated
-     * @exception InstantiationException if an exception occurs while
-     *  instantiating the filter object
-     * @exception ServletException if thrown by the filter's init() method
-     * @throws NamingException
-     * @throws InvocationTargetException
-     * @throws SecurityException
-     * @throws NoSuchMethodException
-     * @throws IllegalArgumentException
+     * 获取Filter实例对象
      */
     Filter getFilter() throws ClassCastException, ClassNotFoundException, IllegalAccessException,
             InstantiationException, ServletException, InvocationTargetException, NamingException,
             IllegalArgumentException, NoSuchMethodException, SecurityException {
 
-        // Return the existing filter instance, if any
         if (this.filter != null)
             return (this.filter);
 
-        // Identify the class loader we will be using
+        /** 获取实现FilterJava类的完全限定名  **/
         String filterClass = filterDef.getFilterClass();
         this.filter = (Filter) getInstanceManager().newInstance(filterClass);
-
         initFilter();
-
         return (this.filter);
-
     }
 
     private void initFilter() throws ServletException {
@@ -284,28 +219,19 @@ public final class ApplicationFilterConfig implements FilterConfig, Serializable
         } else {
             filter.init(this);
         }
-
-        // Expose filter via JMX
         registerJMX();
     }
 
-    /**
-     * Return the filter definition we are configured for.
-     */
+
     FilterDef getFilterDef() {
-
         return (this.filterDef);
-
     }
 
     /**
-     * Release the Filter instance associated with this FilterConfig,
-     * if there is one.
+     * 释放当前对象，销毁filter
      */
     void release() {
-
         unregisterJMX();
-
         if (this.filter != null) {
             try {
                 if (Globals.IS_SECURITY_ENABLED) {
@@ -342,8 +268,9 @@ public final class ApplicationFilterConfig implements FilterConfig, Serializable
      }
 
 
-    // -------------------------------------------------------- Private Methods
-
+    /**
+     * 构造实例管理器
+     */
     private InstanceManager getInstanceManager() {
         if (instanceManager == null) {
             if (context instanceof StandardContext) {
@@ -358,12 +285,14 @@ public final class ApplicationFilterConfig implements FilterConfig, Serializable
         return instanceManager;
     }
 
+    /**
+     * 注册到JMX
+     */
     private void registerJMX() {
         String parentName = context.getName();
         if (!parentName.startsWith("/")) {
             parentName = "/" + parentName;
         }
-
         String hostName = context.getParent().getName();
         hostName = (hostName == null) ? "DEFAULT" : hostName;
 
@@ -396,6 +325,9 @@ public final class ApplicationFilterConfig implements FilterConfig, Serializable
         }
     }
 
+    /**
+     * 从JMX注销
+     */
     private void unregisterJMX() {
         // unregister this component
         if (oname != null) {
@@ -411,6 +343,5 @@ public final class ApplicationFilterConfig implements FilterConfig, Serializable
                         getFilterClass(), getFilterName()), ex);
             }
         }
-
     }
 }

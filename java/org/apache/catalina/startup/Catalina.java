@@ -728,19 +728,19 @@ public class Catalina {
      */
     public void start() {
 
-        /** 判断是否以设置server组件 **/
+        /** 如果不存在server组件，说明初始化失败，重新加载Catalina **/
         if (getServer() == null) {
             /** 重新加载Catalina **/
             load();
         }
 
-        /** 加载Catalina失败 **/
+        /** 如果还是找不到server组件，直接返回 **/
         if (getServer() == null) {
             log.fatal("Cannot start server. Server instance is not configured.");
             return;
         }
 
-        /** 获取Tomcat启动时间 **/
+        /** 获取当前时间 **/
         long t1 = System.nanoTime();
 
         /** 启动Server组件 **/
@@ -759,7 +759,7 @@ public class Catalina {
             return;
         }
 
-        /** 打印tomcat执行启动事件 **/
+        /** 打印tomcat执行启动用时 **/
         long t2 = System.nanoTime();
         if(log.isInfoEnabled()) {
             log.info("Server startup in " + ((t2 - t1) / 1000000) + " ms");
@@ -767,31 +767,30 @@ public class Catalina {
 
         /**  判断是否需要向JVM注册一个钩子线程， **/
         if (useShutdownHook) {
-            /** 初始化CatalinaShutdownHook **/
+            /** 实例化钩子线程CatalinaShutdownHook **/
             if (shutdownHook == null) {
                 shutdownHook = new CatalinaShutdownHook();
             }
             /**将shutdownHook注册JMV**/
             Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-            /**设置LogManager中注册到JVM钩子线程在JVM停止时不会执行 **/
             LogManager logManager = LogManager.getLogManager();
             if (logManager instanceof ClassLoaderLogManager) {
                 ((ClassLoaderLogManager) logManager).setUseShutdownHook(
                         false);
             }
         }
-        /** 执行Bootstarp.main函数的指令为start时会设置  Catalina的await属性为true，**/
+        /** 执行Bootstarp.main函数的指令为start时会设置 Catalina的await属性为true，**/
         if (await) {
             /**
-             * 阻塞tomcat主线程，当主线程从阻塞中唤醒并从await()方法返回表示tomcat被停止
+             * 阻塞当前线程，当前线程从await()方法返回表示tomcat被停止
              *
              * 如下两种情况会导致tomcat停止
              *
              * 1 内部调用server组件stopAwait()方法
              *
-             * 2 接收到客户端发起SHUTDOWN命令socket请求
-             **/
+             * 2 接收到客户端发起SHUTDOWN命令
+             * **/
             await();
             /** 停止Catalina **/
             stop();
@@ -840,13 +839,9 @@ public class Catalina {
     }
 
 
-    /**
-     * 启动一个Socket等待接受shutdown命令，用来停止Tomcat
-     */
+
     public void await() {
-
         getServer().await();
-
     }
 
 

@@ -396,10 +396,7 @@ public interface Context extends Container, ContextBind {
 
 
     /**
-     * Obtain the document root for this Context.
-     *
-     * @return An absolute pathname or a relative (to the Host's appBase)
-     *         pathname.
+     * 获取context文档的绝对路径名或相对路径名，如果是相对路径则完整路径为AppBase+DocBase。
      */
     public String getDocBase();
 
@@ -582,7 +579,7 @@ public interface Context extends Container, ContextBind {
     public void setSwallowAbortedUploads(boolean swallowAbortedUploads);
 
     /**
-     * @return the value of the swallowOutput flag.
+     * true情况下, System.out和System.err输出将被定向到web应用日志中
      */
     public boolean getSwallowOutput();
 

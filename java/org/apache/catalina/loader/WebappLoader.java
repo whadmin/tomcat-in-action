@@ -44,20 +44,13 @@ import org.apache.tomcat.util.modeler.Registry;
 import org.apache.tomcat.util.res.StringManager;
 
 /**
- * Classloader implementation which is specialized for handling web
- * applications in the most efficient way, while being Catalina aware (all
- * accesses to resources are made through
- * {@link org.apache.catalina.WebResourceRoot}).
- * This class loader supports detection of modified
- * Java classes, which can be used to implement auto-reload support.
- * <p>
- * This class loader is configured via the Resources children of its Context
- * prior to calling <code>start()</code>.  When a new class is required,
- * these Resources will be consulted first to locate the class.  If it
- * is not present, the system class loader will be used instead.
+ * 类加载器实现，专门以最有效的方式处理Web应用程序，
+ * 同时具有catalina意识（所有对资源的访问都是通过@link org.apache.catalina.webresourceroot）
+ * 这个类加载器支持检测修改的Java类，可以用来实现自动重载支持
+
+ 在调用<code>start()之前，通过其上下文的资源子级配置该类加载器。当需要一个新的类时，
+ 将首先咨询这些资源以定位该类。如果不存在，则将使用系统类加载器。
  *
- * @author Craig R. McClanahan
- * @author Remy Maucherat
  */
 public class WebappLoader extends LifecycleMBeanBase
     implements Loader, PropertyChangeListener {

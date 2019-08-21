@@ -108,33 +108,45 @@ public class HostRuleSet extends RuleSetBase {
                             "addChild",
                             "org.apache.catalina.Container");
 
+        /** 解析<Alias>标签，将标签中数据<Alias>test<Alias>做为参数调用栈顶对象StandardHost.addAlias方法调用的参数，设置到StandardHost属性中 **/
         digester.addCallMethod(prefix + "Host/Alias",
                                "addAlias", 0);
 
-        //Cluster configuration start
+
+        //解析<Server><Service><Engine><Host><Cluster>标签
+        /** 解析<Cluster>标签实例化标签中className属性定义的对象，并push到操作栈中 **/
         digester.addObjectCreate(prefix + "Host/Cluster",
                                  null, // MUST be specified in the element
                                  "className");
+        /** 解析<Cluster>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties(prefix + "Host/Cluster");
+        /** 解析</Cluster>标签将操作栈栈顶对象作为次栈顶对象StandardHost.addLifecycleListener方法调用的参数，设置到StandardHost属性中**/
         digester.addSetNext(prefix + "Host/Cluster",
                             "setCluster",
                             "org.apache.catalina.Cluster");
-        //Cluster configuration end
 
+        //解析<Server><Service><Engine><Host><Listener>标签
+        /** 解析<Listener>标签实例化标签中className属性定义的对象，并push到操作栈中 **/
         digester.addObjectCreate(prefix + "Host/Listener",
                                  null, // MUST be specified in the element
                                  "className");
+        /** 解析<Listener>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties(prefix + "Host/Listener");
+        /** 解析</Listener>标签将操作栈栈顶对象作为次栈顶对象StandardHost.addLifecycleListener方法调用的参数，设置到StandardHost属性中**/
         digester.addSetNext(prefix + "Host/Listener",
                             "addLifecycleListener",
                             "org.apache.catalina.LifecycleListener");
-
+         //解析<Server><Service><Engine><Host><Realm>标签
         digester.addRuleSet(new RealmRuleSet(prefix + "Host/"));
 
+        //解析<Server><Service><Engine><Host><Valve>标签
+        /** 解析<Valve>标签实例化标签中className属性定义的对象，并push到操作栈中 **/
         digester.addObjectCreate(prefix + "Host/Valve",
-                                 null, // MUST be specified in the element
+                                 null,
                                  "className");
+        /** 解析<Valve>标签将标签中属性值映射到其实例化对象中**/
         digester.addSetProperties(prefix + "Host/Valve");
+        /** 解析</Valve>标签将操作栈栈顶对象作为次栈顶对象StandardHost.addValve方法调用的参数，设置到StandardHost属性中**/
         digester.addSetNext(prefix + "Host/Valve",
                             "addValve",
                             "org.apache.catalina.Valve");

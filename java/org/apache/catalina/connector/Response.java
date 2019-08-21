@@ -373,9 +373,7 @@ public class Response implements HttpServletResponse {
 
 
     /**
-     * Set the suspended flag.
-     *
-     * @param suspended The new suspended flag value
+     * 设置挂起的标志。
      */
     public void setSuspended(boolean suspended) {
         outputBuffer.setSuspended(suspended);
@@ -610,9 +608,7 @@ public class Response implements HttpServletResponse {
 
 
     /**
-     * Has the output of this response already been committed?
-     *
-     * @return <code>true</code> if the response has been committed
+     * 是否已提交此响应的输出
      */
     @Override
     public boolean isCommitted() {

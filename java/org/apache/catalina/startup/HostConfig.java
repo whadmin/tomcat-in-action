@@ -72,13 +72,7 @@ import org.apache.tomcat.util.digester.Digester;
 import org.apache.tomcat.util.modeler.Registry;
 import org.apache.tomcat.util.res.StringManager;
 
-/**
- * Startup event listener for a <b>Host</b> that configures the properties
- * of that Host, and the associated defined contexts.
- *
- * @author Craig R. McClanahan
- * @author Remy Maucherat
- */
+
 public class HostConfig implements LifecycleListener {
 
     private static final Log log = LogFactory.getLog(HostConfig.class);
@@ -139,7 +133,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * 存储已部署/未部署/重新部署context名称
+     * 存储正在运行且禁止（部署/卸载/重新部署）的Context列表
      */
     protected final ArrayList<String> serviced = new ArrayList<>();
 
@@ -156,7 +150,7 @@ public class HostConfig implements LifecycleListener {
     private final Object digesterLock = new Object();
 
     /**
-     * 存储在部署应该忽略war包应用程序。
+     * 存储用忽略部署应用程序war文件
      */
     protected final Set<String> invalidWars = new HashSet<>();
 
@@ -246,7 +240,7 @@ public class HostConfig implements LifecycleListener {
     @Override
     public void lifecycleEvent(LifecycleEvent event) {
 
-        /**  获取host组件配置属性设置当前对象对应属性中  **/
+        /**  获取host组件配置属性设置HostConfig对应属性中  **/
         try {
             host = (Host) event.getLifecycle();
             if (host instanceof StandardHost) {
@@ -262,12 +256,30 @@ public class HostConfig implements LifecycleListener {
 
         /** 处理相应的host组件生命周期事件 **/
         if (event.getType().equals(Lifecycle.PERIODIC_EVENT)) {
+            /**
+             * 监听host组件周期性任务触发事件，
+             * 获取host组件下所有部署context组件，检查每一个context组件中需要监听资源目录是否发生变更，
+             * 如果发生变更则触发其context重新加载或启动
+             **/
             check();
         } else if (event.getType().equals(Lifecycle.BEFORE_START_EVENT)) {
+            /**
+             * 监听host组件启动前触发事件，
+             * 创建host组件定义appbase和xmlbase路径对应的目录文件
+             **/
             beforeStart();
         } else if (event.getType().equals(Lifecycle.START_EVENT)) {
+            /**
+             * 监听host组件启动事件，启动hostConfig组件.
+             * 1 将HostConfig对象注册到Jmx bean中
+             * 2 如果Host组件启用了在启动时自动部署appBase，xmlBase目录下应用程序或静态资源
+             * 则扫描appBase，xmlBase目录下应用程序或静态资源，构建context组件，添加到host组件，并启动*/
             start();
         } else if (event.getType().equals(Lifecycle.STOP_EVENT)) {
+            /**
+             * 监听host组件停止事件，停止hostConfig组件.
+             * 将HostConfig对象从Jmx bean中注销
+             */
             stop();
         }
     }
@@ -336,7 +348,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * 获取指定路径文件对象，返回CatalinaBase/path
+     * 获取指定路径文件对象，new File(CatalinaBase/path)
      */
     protected File returnCanonicalPath(String path) {
         File file = new File(path);
@@ -351,7 +363,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * 获取配置文件对象绝对路径
+     * 获取配置文件绝对路径
      */
     public String getConfigBaseName() {
         return host.getConfigBaseFile().getAbsolutePath();
@@ -359,92 +371,28 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * 扫描$catalinaBase/xmlBase目录以及appBase目录下应用程序/静态资源部署host
+     * 扫描appBase，xmlBase目录下应用程序或静态资源，构建context组件，添加到host组件，并启动
      */
     protected void deployApps() {
-        /** 获取tomcat存放web应用程序的目录文件对象  **/
+
+        /** 获取host组件部署web应用程序,或静态资源文件的根的目录文件  **/
         File appBase = host.getAppBaseFile();
-        /** 获取当前host文件配置文件对象 默认情况下全路径为$catalinaBase/xmlBase**/
+        /** 获取host配置根的目录文件 **/
         File configBase = host.getConfigBaseFile();
-        /** 使用host容器组件deployIgnore正则表达式过滤appBase子文件**/
+        /** 获取host容器组件deployIgnore正则表达式过滤appBase子文件**/
         String[] filteredAppPaths = filterAppPaths(appBase.list());
 
-        /** 将存放$catalinaBase/xmlBase目录xml文件表示静态资源文件部署到host**/
+        /** 将xmlBase目录xml配置文件表示静态资源文件构建为context容器组件,添加（部署）到host子容器组件，并启动**/
         deployDescriptors(configBase, configBase.list());
-        /** 部署存放appBase目录下web应用程序 **/
+        /** 将appBase目录web应用程序war包构建为context容器组件,添加（部署）到host子容器组件，并启动 **/
         deployWARs(appBase, filteredAppPaths);
-        /** 部署存放appBase目录下静态资源文件 **/
+        /** 将appBase目录静态资源文件构建为context容器组件,添加（部署）到host子容器组件，并启动 **/
         deployDirectories(appBase, filteredAppPaths);
     }
 
-
     /**
-     * 使用host容器组件deployIgnore正则表达式过滤tomcat存放web应用程序的目录子文件
-     */
-    protected String[] filterAppPaths(String[] unfilteredAppPaths) {
-        Pattern filter = host.getDeployIgnorePattern();
-        if (filter == null || unfilteredAppPaths == null) {
-            return unfilteredAppPaths;
-        }
-
-        List<String> filteredList = new ArrayList<>();
-        Matcher matcher = null;
-        for (String appPath : unfilteredAppPaths) {
-            if (matcher == null) {
-                matcher = filter.matcher(appPath);
-            } else {
-                matcher.reset(appPath);
-            }
-            if (matcher.matches()) {
-                if (log.isDebugEnabled()) {
-                    log.debug(sm.getString("hostConfig.ignorePath", appPath));
-                }
-            } else {
-                filteredList.add(appPath);
-            }
-        }
-        return filteredList.toArray(new String[filteredList.size()]);
-    }
-
-
-    /**
-     * 将指定应用程序和静态资源部署到Host
-     */
-    protected void deployApps(String name) {
-
-        File appBase = host.getAppBaseFile();
-        File configBase = host.getConfigBaseFile();
-        ContextName cn = new ContextName(name, false);
-        String baseName = cn.getBaseName();
-
-        if (deploymentExists(cn.getName())) {
-            return;
-        }
-
-        /** 判断$catalinaBase/xmlBase目录是否存在baseName + ".xml"文件 **/
-        File xml = new File(configBase, baseName + ".xml");
-        if (xml.exists()) {
-            /** 将$catalinaBase/xmlBase/baseName.xml文件表示的静态资源部署到host **/
-            deployDescriptor(cn, xml);
-            return;
-        }
-        /** 判断appBase目录是否存在baseName + ".war"文件 **/
-        File war = new File(appBase, baseName + ".war");
-        if (war.exists()) {
-            /** 将appBase/baseName.war文件表示的应用程序部署到host **/
-            deployWAR(cn, war);
-            return;
-        }
-        /** 判断appBase目录是否存在appBase + baseName目录文件 **/
-        File dir = new File(appBase, baseName);
-        if (dir.exists())
-            /** 将appBase/baseName文件目录示的静态资源部署到host **/
-            deployDirectory(cn, dir);
-    }
-
-
-    /**
-     * 使用线程池部署存放$catalinaBase/xmlBase目录下静态资源文件
+     * 遍历$catalinaBase/xmlBase目录下xml配置文件，将每个xml配置文件对应静态文件部署动作，
+     * 封装为一个任务对象DeployDescriptor，交给线程池处理
      */
     protected void deployDescriptors(File configBase, String[] files) {
 
@@ -455,7 +403,10 @@ public class HostConfig implements LifecycleListener {
         ExecutorService es = host.getStartStopExecutor();
         List<Future<?>> results = new ArrayList<>();
 
-        /** 遍历$catalinaBase/xmlBase目录下xml文件，将每个xml文件部署动作，封装为一个任务对象DeployDescriptor，交给线程池处理 **/
+        /**
+         * 遍历$catalinaBase/xmlBase目录下xml文件，将每个xml文件部署动作，
+         * 封装为一个任务对象DeployDescriptor，交给线程池处理
+         **/
         for (int i = 0; i < files.length; i++) {
             File contextXml = new File(configBase, files[i]);
 
@@ -484,162 +435,8 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Deploy specified context descriptor.
-     * @param cn The context name
-     * @param contextXml The descriptor
-     */
-    @SuppressWarnings("null") // context is not null
-    protected void deployDescriptor(ContextName cn, File contextXml) {
-
-        DeployedApplication deployedApp =
-                new DeployedApplication(cn.getName(), true);
-
-        long startTime = 0;
-        // Assume this is a configuration descriptor and deploy it
-        if(log.isInfoEnabled()) {
-           startTime = System.currentTimeMillis();
-           log.info(sm.getString("hostConfig.deployDescriptor",
-                    contextXml.getAbsolutePath()));
-        }
-
-        Context context = null;
-        boolean isExternalWar = false;
-        boolean isExternal = false;
-        File expandedDocBase = null;
-
-        try (FileInputStream fis = new FileInputStream(contextXml)) {
-            synchronized (digesterLock) {
-                try {
-                    context = (Context) digester.parse(fis);
-                } catch (Exception e) {
-                    log.error(sm.getString(
-                            "hostConfig.deployDescriptor.error",
-                            contextXml.getAbsolutePath()), e);
-                } finally {
-                    digester.reset();
-                    if (context == null) {
-                        context = new FailedContext();
-                    }
-                }
-            }
-
-            Class<?> clazz = Class.forName(host.getConfigClass());
-            LifecycleListener listener = (LifecycleListener) clazz.getConstructor().newInstance();
-            context.addLifecycleListener(listener);
-
-            context.setConfigFile(contextXml.toURI().toURL());
-            context.setName(cn.getName());
-            context.setPath(cn.getPath());
-            context.setWebappVersion(cn.getVersion());
-            // Add the associated docBase to the redeployed list if it's a WAR
-            if (context.getDocBase() != null) {
-                File docBase = new File(context.getDocBase());
-                if (!docBase.isAbsolute()) {
-                    docBase = new File(host.getAppBaseFile(), context.getDocBase());
-                }
-                // If external docBase, register .xml as redeploy first
-                if (!docBase.getCanonicalPath().startsWith(
-                        host.getAppBaseFile().getAbsolutePath() + File.separator)) {
-                    isExternal = true;
-                    deployedApp.redeployResources.put(
-                            contextXml.getAbsolutePath(),
-                            Long.valueOf(contextXml.lastModified()));
-                    deployedApp.redeployResources.put(docBase.getAbsolutePath(),
-                            Long.valueOf(docBase.lastModified()));
-                    if (docBase.getAbsolutePath().toLowerCase(Locale.ENGLISH).endsWith(".war")) {
-                        isExternalWar = true;
-                    }
-                } else {
-                    log.warn(sm.getString("hostConfig.deployDescriptor.localDocBaseSpecified",
-                             docBase));
-                    // Ignore specified docBase
-                    context.setDocBase(null);
-                }
-            }
-
-            host.addChild(context);
-        } catch (Throwable t) {
-            ExceptionUtils.handleThrowable(t);
-            log.error(sm.getString("hostConfig.deployDescriptor.error",
-                                   contextXml.getAbsolutePath()), t);
-        } finally {
-            // Get paths for WAR and expanded WAR in appBase
-
-            // default to appBase dir + name
-            expandedDocBase = new File(host.getAppBaseFile(), cn.getBaseName());
-            if (context.getDocBase() != null
-                    && !context.getDocBase().toLowerCase(Locale.ENGLISH).endsWith(".war")) {
-                // first assume docBase is absolute
-                expandedDocBase = new File(context.getDocBase());
-                if (!expandedDocBase.isAbsolute()) {
-                    // if docBase specified and relative, it must be relative to appBase
-                    expandedDocBase = new File(host.getAppBaseFile(), context.getDocBase());
-                }
-            }
-
-            boolean unpackWAR = unpackWARs;
-            if (unpackWAR && context instanceof StandardContext) {
-                unpackWAR = ((StandardContext) context).getUnpackWAR();
-            }
-
-            // Add the eventual unpacked WAR and all the resources which will be
-            // watched inside it
-            if (isExternalWar) {
-                if (unpackWAR) {
-                    deployedApp.redeployResources.put(expandedDocBase.getAbsolutePath(),
-                            Long.valueOf(expandedDocBase.lastModified()));
-                    addWatchedResources(deployedApp, expandedDocBase.getAbsolutePath(), context);
-                } else {
-                    addWatchedResources(deployedApp, null, context);
-                }
-            } else {
-                // Find an existing matching war and expanded folder
-                if (!isExternal) {
-                    File warDocBase = new File(expandedDocBase.getAbsolutePath() + ".war");
-                    if (warDocBase.exists()) {
-                        deployedApp.redeployResources.put(warDocBase.getAbsolutePath(),
-                                Long.valueOf(warDocBase.lastModified()));
-                    } else {
-                        // Trigger a redeploy if a WAR is added
-                        deployedApp.redeployResources.put(
-                                warDocBase.getAbsolutePath(),
-                                Long.valueOf(0));
-                    }
-                }
-                if (unpackWAR) {
-                    deployedApp.redeployResources.put(expandedDocBase.getAbsolutePath(),
-                            Long.valueOf(expandedDocBase.lastModified()));
-                    addWatchedResources(deployedApp,
-                            expandedDocBase.getAbsolutePath(), context);
-                } else {
-                    addWatchedResources(deployedApp, null, context);
-                }
-                if (!isExternal) {
-                    // For external docBases, the context.xml will have been
-                    // added above.
-                    deployedApp.redeployResources.put(
-                            contextXml.getAbsolutePath(),
-                            Long.valueOf(contextXml.lastModified()));
-                }
-            }
-            // Add the global redeploy resources (which are never deleted) at
-            // the end so they don't interfere with the deletion process
-            addGlobalRedeployResources(deployedApp);
-        }
-
-        if (host.findChild(context.getName()) != null) {
-            deployed.put(context.getName(), deployedApp);
-        }
-
-        if (log.isInfoEnabled()) {
-            log.info(sm.getString("hostConfig.deployDescriptor.finished",
-                contextXml.getAbsolutePath(), Long.valueOf(System.currentTimeMillis() - startTime)));
-        }
-    }
-
-
-    /**
-     * 部署存放appBase目录下web应用程序
+     * 遍历$appBase目录下应用程序war包文件，将每个应用程序war包文件部署动作，
+     * 封装为一个任务对象DeployWar，交给线程池处理
      */
     protected void deployWARs(File appBase, String[] files) {
 
@@ -650,8 +447,9 @@ public class HostConfig implements LifecycleListener {
         ExecutorService es = host.getStartStopExecutor();
         List<Future<?>> results = new ArrayList<>();
 
-        /** 遍历appBase目录下下的子文件 **/
+        /** 遍历appBase目录下文件 **/
         for (int i = 0; i < files.length; i++) {
+
             /**  忽略META-INF文件  **/
             if (files[i].equalsIgnoreCase("META-INF"))
                 continue;
@@ -659,25 +457,52 @@ public class HostConfig implements LifecycleListener {
             /**  忽略WEB-INF文件  **/
             if (files[i].equalsIgnoreCase("WEB-INF"))
                 continue;
+
+            /** 实例化appBase目录下war文件对象**/
             File war = new File(appBase, files[i]);
 
-            /** 查找war包文件类型文件，且不在应该忽略war包应用列表invalidWars中 **/
+            /**
+             * 如果war文件存在，且扩展名称为.war，且不存在于invalidWars中
+             * invalidWars存储用忽略部署应用程序war文件
+             * **/
             if (files[i].toLowerCase(Locale.ENGLISH).endsWith(".war") &&
                     war.isFile() && !invalidWars.contains(files[i]) ) {
 
+                /**
+                 * 已war包名称作为context完整名称实例化ContextName对象
+                 * ContextName用来表示context名称，
+                 *
+                 * name 表示完整名称,部署在appBase目录下应用程序name=war包文件名=path##version
+                 * baseName,表示根据name过滤特殊字符后基础名称
+                 * path 表示context部署根路径，从name中解析获取
+                 * version 同一个war包程序可以部署多个版本到host,只需要修改名称为test##3.war ##后3表示版本号
+                 *
+                 * **/
                 ContextName cn = new ContextName(files[i], true);
 
-                /** server列表中是否包含指定context名称 **/
+                /**
+                 * 过滤掉存在于serviced列表中war包应用程序
+                 * serviced列表中存储正在运行且禁止（部署/卸载/重新部署）的Context
+                 * **/
                 if (isServiced(cn.getName())) {
                     continue;
                 }
-                /** 判断war包应用程序是否已经部署到host中 **/
+                /**
+                 * 过滤掉已经部署到host中war包应用程序，如果存在则跳过
+                 * 并更新war包应用程序对应DeployedApplication对象loggedDirWarning属性
+                 *
+                 * loggedDirWarning属性表示是否不解压war包直接运行war包中程序
+                 * **/
                 if (deploymentExists(cn.getName())) {
+
                     DeployedApplication app = deployed.get(cn.getName());
+
+                    /** 获取是否直接运行war包中程序 **/
                     boolean unpackWAR = unpackWARs;
                     if (unpackWAR && host.findChild(cn.getName()) instanceof StandardContext) {
                         unpackWAR = ((StandardContext) host.findChild(cn.getName())).getUnpackWAR();
                     }
+
                     if (!unpackWAR && app != null) {
                         // Need to check for a directory that should not be
                         // there
@@ -694,10 +519,11 @@ public class HostConfig implements LifecycleListener {
                             app.loggedDirWarning = false;
                         }
                     }
+                    /** 过滤 **/
                     continue;
                 }
 
-                /** 校验contextPath **/
+                /** 过滤掉不符合规则context 基础名称 **/
                 if (!validateContextPath(appBase, cn.getBaseName())) {
                     log.error(sm.getString(
                             "hostConfig.illegalWarName", files[i]));
@@ -705,13 +531,15 @@ public class HostConfig implements LifecycleListener {
                     continue;
                 }
 
-                /** 将遍历过滤后每个war文件部署动作，封装为一个任务对象DeployWar，交给线程池处理**/
+                /** 遍历$appBase目录下应用程序war包文件，将每个应用程序war包文件部署动作，
+                 * 封装为一个任务对象DeployWar，交给线程池处理 **/
                 results.add(es.submit(new DeployWar(this, cn, war)));
             }
         }
-
+        /** 等待线程池异步处理结果 **/
         for (Future<?> result : results) {
             try {
+                /** 阻塞等待异步处理结果 **/
                 result.get();
             } catch (Exception e) {
                 log.error(sm.getString(
@@ -722,40 +550,259 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * 校验contextPath
+     * 遍历$appBase目录下静态资源文件，将静态资源文件部署动作，
+     * 封装为一个任务对象DeployDirectory，交给线程池处理
      */
-    private boolean validateContextPath(File appBase, String contextPath) {
+    protected void deployDirectories(File appBase, String[] files) {
 
-        StringBuilder docBase;
-        String canonicalDocBase = null;
+        if (files == null)
+            return;
 
-        try {
-            String canonicalAppBase = appBase.getCanonicalPath();
-            docBase = new StringBuilder(canonicalAppBase);
-            if (canonicalAppBase.endsWith(File.separator)) {
-                docBase.append(contextPath.substring(1).replace(
-                        '/', File.separatorChar));
-            } else {
-                docBase.append(contextPath.replace('/', File.separatorChar));
+        ExecutorService es = host.getStartStopExecutor();
+        List<Future<?>> results = new ArrayList<>();
+        /** 遍历$appBase目录下静态资源文件 **/
+        for (int i = 0; i < files.length; i++) {
+            /**  忽略META-INF文件  **/
+            if (files[i].equalsIgnoreCase("META-INF"))
+                continue;
+
+            /**  忽略WEB-INF文件  **/
+            if (files[i].equalsIgnoreCase("WEB-INF"))
+                continue;
+
+            /** 实例化appBase目录下静态资源目录文件**/
+            File dir = new File(appBase, files[i]);
+            /** 判断是否是目录 **/
+            if (dir.isDirectory()) {
+                ContextName cn = new ContextName(files[i], false);
+
+                /**
+                 * 过滤掉存在于serviced列表中静态资源文件
+                 * 过滤掉已经部署到host中静态资源文件
+                 * **/
+                if (isServiced(cn.getName()) || deploymentExists(cn.getName()))
+                    continue;
+
+                /** 将静态资源文件部署动作，
+                 * 封装为一个任务对象DeployDirectory，交给线程池处理 **/
+                results.add(es.submit(new DeployDirectory(this, cn, dir)));
             }
-
-            canonicalDocBase =
-                (new File(docBase.toString())).getCanonicalPath();
-
-            if (canonicalDocBase.endsWith(File.separator)) {
-                docBase.append(File.separator);
+        }
+         /** 等待线程池异步处理结果 **/
+        for (Future<?> result : results) {
+            try {
+                /** 阻塞等待异步处理结果 **/
+                result.get();
+            } catch (Exception e) {
+                log.error(sm.getString(
+                        "hostConfig.deployDir.threaded.error"), e);
             }
-        } catch (IOException ioe) {
-            return false;
+        }
+    }
+
+
+    /**
+     * 将指定应用程序或静态资源部署到Host
+     */
+    protected void deployApps(String name) {
+
+        /** 获取host组件部署web应用程序,或静态资源文件的根的目录文件  **/
+        File appBase = host.getAppBaseFile();
+        /** 获取host配置根的目录文件 **/
+        File configBase = host.getConfigBaseFile();
+        /** 实例化ContextName对象 **/
+        ContextName cn = new ContextName(name, false);
+        /** 获取context 基础名称**/
+        String baseName = cn.getBaseName();
+
+        /** 如果应用程序或静态资源已经部署到host中返回 **/
+        if (deploymentExists(cn.getName())) {
+            return;
         }
 
-        return canonicalDocBase.equals(docBase.toString());
+        /** 判断$catalinaBase/xmlBase目录是否存在baseName + ".xml"文件 **/
+        File xml = new File(configBase, baseName + ".xml");
+        if (xml.exists()) {
+            /** 将$catalinaBase/xmlBase/baseName.xml文件表示的静态资源部署到host **/
+            deployDescriptor(cn, xml);
+            return;
+        }
+        /** 判断appBase目录是否存在baseName + ".war"文件 **/
+        File war = new File(appBase, baseName + ".war");
+        if (war.exists()) {
+            /** 将appBase/baseName.war文件表示的应用程序部署到host **/
+            deployWAR(cn, war);
+            return;
+        }
+        /** 判断appBase目录是否存在appBase + baseName目录文件 **/
+        File dir = new File(appBase, baseName);
+        if (dir.exists())
+            /** 将appBase/baseName文件目录示的静态资源部署到host **/
+            deployDirectory(cn, dir);
     }
 
     /**
-     * Deploy packed WAR.
-     * @param cn The context name
-     * @param war The WAR file
+     * 将$catalinaBase/xmlBase目录下xml配置文件表示的静态资源部署到host
+     */
+    protected void deployDescriptor(ContextName cn, File contextXml) {
+
+        DeployedApplication deployedApp =
+                new DeployedApplication(cn.getName(), true);
+
+        long startTime = 0;
+
+        if(log.isInfoEnabled()) {
+           startTime = System.currentTimeMillis();
+           log.info(sm.getString("hostConfig.deployDescriptor",
+                    contextXml.getAbsolutePath()));
+        }
+
+        Context context = null;
+        /** 是否存在外部war包 **/
+        boolean isExternalWar = false;
+        /** 是否存在外部资源 **/
+        boolean isExternal = false;
+        /** 网络文档根路径**/
+        File expandedDocBase = null;
+
+
+        try (FileInputStream fis = new FileInputStream(contextXml)) {
+
+            /** 使用digester解析xml实例context组件 **/
+            synchronized (digesterLock) {
+                try {
+                    context = (Context) digester.parse(fis);
+                } catch (Exception e) {
+                    log.error(sm.getString(
+                            "hostConfig.deployDescriptor.error",
+                            contextXml.getAbsolutePath()), e);
+                } finally {
+                    digester.reset();
+                    if (context == null) {
+                        context = new FailedContext();
+                    }
+                }
+            }
+
+            /** 实例化contextConfig对象，添加到context组件生命周期监听器列表中 **/
+            Class<?> clazz = Class.forName(host.getConfigClass());
+            LifecycleListener listener = (LifecycleListener) clazz.getConstructor().newInstance();
+            context.addLifecycleListener(listener);
+
+            /** 设置context配置文件路径 **/
+            context.setConfigFile(contextXml.toURI().toURL());
+            /** 设置context全名称 **/
+            context.setName(cn.getName());
+            /** 设置context根路径 **/
+            context.setPath(cn.getPath());
+            /** 设置context版本号 **/
+            context.setWebappVersion(cn.getVersion());
+            /** 获取context文档的绝对路径名或相对路径名，判断是否存在 **/
+            if (context.getDocBase() != null) {
+                /** 获取context文档文件对象 **/
+                File docBase = new File(context.getDocBase());
+                if (!docBase.isAbsolute()) {
+                    docBase = new File(host.getAppBaseFile(), context.getDocBase());
+                }
+                /** 判断context文档对象是否保存在appBase目录下 **/
+                if (!docBase.getCanonicalPath().startsWith(
+                        host.getAppBaseFile().getAbsolutePath() + File.separator)) {
+                    isExternal = true;
+                    /**
+                     * 将context.xml文件添加到deployedApp
+                     * deployedApp.redeployResources用来保存和部署context相关联外部资源，被称为外部资源是因为资源并不存放在AppBase目录下
+                     * **/
+                    deployedApp.redeployResources.put(
+                            contextXml.getAbsolutePath(),
+                            Long.valueOf(contextXml.lastModified()));
+                    /**
+                     * 将context文档对象添加到deployedApp
+                     * deployedApp.redeployResources用来保存和部署context相关联外部资源，被称为外部资源是因为资源并不存放在AppBase目录下
+                     * **/
+                    deployedApp.redeployResources.put(docBase.getAbsolutePath(),
+                            Long.valueOf(docBase.lastModified()));
+
+                    /** 判断文档文件扩展名称是否为war **/
+                    if (docBase.getAbsolutePath().toLowerCase(Locale.ENGLISH).endsWith(".war")) {
+                        isExternalWar = true;
+                    }
+                } else {
+                    log.warn(sm.getString("hostConfig.deployDescriptor.localDocBaseSpecified",
+                             docBase));
+                    // Ignore specified docBase
+                    context.setDocBase(null);
+                }
+            }
+            /** 将新实例化context组件添加到host,添加过程中会启动context **/
+            host.addChild(context);
+        } catch (Throwable t) {
+            ExceptionUtils.handleThrowable(t);
+            log.error(sm.getString("hostConfig.deployDescriptor.error",
+                                   contextXml.getAbsolutePath()), t);
+        } finally {
+            expandedDocBase = new File(host.getAppBaseFile(), cn.getBaseName());
+            if (context.getDocBase() != null
+                    && !context.getDocBase().toLowerCase(Locale.ENGLISH).endsWith(".war")) {
+                expandedDocBase = new File(context.getDocBase());
+                if (!expandedDocBase.isAbsolute()) {
+                    expandedDocBase = new File(host.getAppBaseFile(), context.getDocBase());
+                }
+            }
+
+            boolean unpackWAR = unpackWARs;
+            if (unpackWAR && context instanceof StandardContext) {
+                unpackWAR = ((StandardContext) context).getUnpackWAR();
+            }
+
+            if (isExternalWar) {
+                if (unpackWAR) {
+                    deployedApp.redeployResources.put(expandedDocBase.getAbsolutePath(),
+                            Long.valueOf(expandedDocBase.lastModified()));
+                    addWatchedResources(deployedApp, expandedDocBase.getAbsolutePath(), context);
+                } else {
+                    addWatchedResources(deployedApp, null, context);
+                }
+            } else {
+                if (!isExternal) {
+                    File warDocBase = new File(expandedDocBase.getAbsolutePath() + ".war");
+                    if (warDocBase.exists()) {
+                        deployedApp.redeployResources.put(warDocBase.getAbsolutePath(),
+                                Long.valueOf(warDocBase.lastModified()));
+                    } else {
+                        deployedApp.redeployResources.put(
+                                warDocBase.getAbsolutePath(),
+                                Long.valueOf(0));
+                    }
+                }
+                if (unpackWAR) {
+                    deployedApp.redeployResources.put(expandedDocBase.getAbsolutePath(),
+                            Long.valueOf(expandedDocBase.lastModified()));
+                    addWatchedResources(deployedApp,
+                            expandedDocBase.getAbsolutePath(), context);
+                } else {
+                    addWatchedResources(deployedApp, null, context);
+                }
+                if (!isExternal) {
+                    deployedApp.redeployResources.put(
+                            contextXml.getAbsolutePath(),
+                            Long.valueOf(contextXml.lastModified()));
+                }
+            }
+            addGlobalRedeployResources(deployedApp);
+        }
+
+        if (host.findChild(context.getName()) != null) {
+            deployed.put(context.getName(), deployedApp);
+        }
+
+        if (log.isInfoEnabled()) {
+            log.info(sm.getString("hostConfig.deployDescriptor.finished",
+                contextXml.getAbsolutePath(), Long.valueOf(System.currentTimeMillis() - startTime)));
+        }
+    }
+
+    /**
+     * 将appBase目录下war包应用程序部署到host
      */
     protected void deployWAR(ContextName cn, File war) {
 
@@ -957,50 +1004,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Deploy exploded webapps.
-     * @param appBase The base path for applications
-     * @param files The exploded webapps that should be deployed
-     */
-    protected void deployDirectories(File appBase, String[] files) {
-
-        if (files == null)
-            return;
-
-        ExecutorService es = host.getStartStopExecutor();
-        List<Future<?>> results = new ArrayList<>();
-
-        for (int i = 0; i < files.length; i++) {
-
-            if (files[i].equalsIgnoreCase("META-INF"))
-                continue;
-            if (files[i].equalsIgnoreCase("WEB-INF"))
-                continue;
-            File dir = new File(appBase, files[i]);
-            if (dir.isDirectory()) {
-                ContextName cn = new ContextName(files[i], false);
-
-                if (isServiced(cn.getName()) || deploymentExists(cn.getName()))
-                    continue;
-
-                results.add(es.submit(new DeployDirectory(this, cn, dir)));
-            }
-        }
-
-        for (Future<?> result : results) {
-            try {
-                result.get();
-            } catch (Exception e) {
-                log.error(sm.getString(
-                        "hostConfig.deployDir.threaded.error"), e);
-            }
-        }
-    }
-
-
-    /**
-     * Deploy exploded webapp.
-     * @param cn The context name
-     * @param dir The path to the root folder of the weapp
+     * 将appBase目录下静态资源文件部署到host
      */
     protected void deployDirectory(ContextName cn, File dir) {
 
@@ -1128,7 +1132,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * 检查是否已在此Host中部署指定contextName
+     * 检查contextName是否已经部署到host中
      */
     protected boolean deploymentExists(String contextName) {
         return (deployed.containsKey(contextName) ||
@@ -1137,16 +1141,10 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Add watched resources to the specified Context.
-     * @param app HostConfig deployed app
-     * @param docBase web app docBase
-     * @param context web application context
+     * 将Context监视资源添加到对应DeployedApplication对象reloadResources属性中
      */
     protected void addWatchedResources(DeployedApplication app, String docBase,
             Context context) {
-        // FIXME: Feature idea. Add support for patterns (ex: WEB-INF/*,
-        //        WEB-INF/*.xml), where we would only check if at least one
-        //        resource is newer than app.timestamp
         File docBaseFile = null;
         if (docBase != null) {
             docBaseFile = new File(docBase);
@@ -1176,6 +1174,10 @@ public class HostConfig implements LifecycleListener {
     }
 
 
+    /**
+     * 将CATALINA_BASE/context.xml.default，CATALINA_BASE/conf/context.xml文件作为外部资源添加到
+     * context部署对象DeployedApplication.redeployResources属性中
+     */
     protected void addGlobalRedeployResources(DeployedApplication app) {
         // Redeploy resources processing is hard-coded to never delete this file
         File hostContextXml =
@@ -1196,29 +1198,29 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Check resources for redeployment and reloading.
-     *
-     * @param app   The web application to check
-     * @param skipFileModificationResolutionCheck
-     *              When checking files for modification should the check that
-     *              requires that any file modification must have occurred at
-     *              least as long ago as the resolution of the file time stamp
-     *              be skipped
+     * 检查context中资源是否发生变更，如果发生变更则重新部署或重新加载context。
      */
     protected synchronized void checkResources(DeployedApplication app,
             boolean skipFileModificationResolutionCheck) {
+
+        /** 获取context外部资源路径 **/
         String[] resources =
             app.redeployResources.keySet().toArray(new String[0]);
-        // Offset the current time by the resolution of File.lastModified()
+
         long currentTimeWithResolutionOffset =
                 System.currentTimeMillis() - FILE_MODIFICATION_RESOLUTION_MS;
+
+        /** 遍历context外部资源路径，如果外部资源文件不存在则卸载当前context**/
         for (int i = 0; i < resources.length; i++) {
             File resource = new File(resources[i]);
+
             if (log.isDebugEnabled())
                 log.debug("Checking context[" + app.name +
                         "] redeploy resource " + resource);
+
             long lastModified =
                     app.redeployResources.get(resources[i]).longValue();
+
             if (resource.exists() || lastModified == 0) {
                 // File.lastModified() has a resolution of 1s (1000ms). The last
                 // modified time has to be more than 1000ms ago to ensure that
@@ -1274,47 +1276,43 @@ public class HostConfig implements LifecycleListener {
                     }
                 }
             } else {
-                // There is a chance the the resource was only missing
-                // temporarily eg renamed during a text editor save
                 try {
                     Thread.sleep(500);
                 } catch (InterruptedException e1) {
-                    // Ignore
                 }
-                // Recheck the resource to see if it was really deleted
                 if (resource.exists()) {
                     continue;
                 }
-                // Undeploy application
                 undeploy(app);
                 deleteRedeployResources(app, resources, i, true);
                 return;
             }
         }
+
+        /** 获取context需要监视的资源数组 **/
         resources = app.reloadResources.keySet().toArray(new String[0]);
         boolean update = false;
+
+        /** 遍历context需要监视的资源数组 **/
         for (int i = 0; i < resources.length; i++) {
             File resource = new File(resources[i]);
             if (log.isDebugEnabled()) {
                 log.debug("Checking context[" + app.name + "] reload resource " + resource);
             }
             long lastModified = app.reloadResources.get(resources[i]).longValue();
-            // File.lastModified() has a resolution of 1s (1000ms). The last
-            // modified time has to be more than 1000ms ago to ensure that
-            // modifications that take place in the same second are not
-            // missed. See Bug 57765.
+            //参见bug 57765
+            /** 检查是否有资源是否有更新 **/
             if ((resource.lastModified() != lastModified &&
                     (!host.getAutoDeploy() ||
                             resource.lastModified() < currentTimeWithResolutionOffset ||
                             skipFileModificationResolutionCheck)) ||
                     update) {
                 if (!update) {
-                    // Reload application
+                    /**重新加载context **/
                     reload(app, null, null);
                     update = true;
                 }
-                // Update times. More than one file may have been updated. We
-                // don't want to trigger a series of reloads.
+                /**  对于重新加载的context，更新对应DeployedApplication对象reloadResources属性，跟新context部署事件 **/
                 app.reloadResources.put(resources[i],
                         Long.valueOf(resource.lastModified()));
             }
@@ -1323,9 +1321,8 @@ public class HostConfig implements LifecycleListener {
     }
 
 
-    /*
-     * Note: If either of fileToRemove and newDocBase are null, both will be
-     *       ignored.
+    /**
+     * 重新加载指定context
      */
     private void reload(DeployedApplication app, File fileToRemove, String newDocBase) {
         if(log.isInfoEnabled())
@@ -1355,9 +1352,14 @@ public class HostConfig implements LifecycleListener {
     }
 
 
+    /**
+     * 卸载指定context
+     */
     private void undeploy(DeployedApplication app) {
         if (log.isInfoEnabled())
             log.info(sm.getString("hostConfig.undeploy", app.name));
+
+        /** 从context子容器中删除 **/
         Container context = host.findChild(app.name);
         try {
             host.removeChild(context);
@@ -1366,22 +1368,27 @@ public class HostConfig implements LifecycleListener {
             log.warn(sm.getString
                      ("hostConfig.context.remove", app.name), t);
         }
+        /** 从已经部署context上下文Map中删除  **/
         deployed.remove(app.name);
     }
 
 
+    /**
+     * 删除context关联的外部资源，和监视资源
+     * @param app
+     * @param resources
+     * @param i
+     * @param deleteReloadResources
+     */
     private void deleteRedeployResources(DeployedApplication app, String[] resources, int i,
             boolean deleteReloadResources) {
 
-        // Delete other redeploy resources
+
         for (int j = i + 1; j < resources.length; j++) {
             File current = new File(resources[j]);
-            // Never delete per host context.xml defaults
             if (Constants.HostContextXml.equals(current.getName())) {
                 continue;
             }
-            // Only delete resources in the appBase or the
-            // host's configBase
             if (isDeletableResource(app, current)) {
                 if (log.isDebugEnabled()) {
                     log.debug("Delete " + current);
@@ -1390,17 +1397,13 @@ public class HostConfig implements LifecycleListener {
             }
         }
 
-        // Delete reload resources (to remove any remaining .xml descriptor)
         if (deleteReloadResources) {
             String[] resources2 = app.reloadResources.keySet().toArray(new String[0]);
             for (int j = 0; j < resources2.length; j++) {
                 File current = new File(resources2[j]);
-                // Never delete per host context.xml defaults
                 if (Constants.HostContextXml.equals(current.getName())) {
                     continue;
                 }
-                // Only delete resources in the appBase or the host's
-                // configBase
                 if (isDeletableResource(app, current)) {
                     if (log.isDebugEnabled()) {
                         log.debug("Delete " + current);
@@ -1412,12 +1415,11 @@ public class HostConfig implements LifecycleListener {
     }
 
 
-    /*
-     * Delete any resource that would trigger the automatic deployment code to
-     * re-deploy the application. This means deleting:
-     * - any resource located in the appBase
-     * - any deployment descriptor located under the configBase
-     * - symlinks in the appBase or configBase for either of the above
+    /**
+     * 判断当前context内指定的资源能够删除
+     *  -位于AppBase中的任何资源
+     *  -位于配置数据库下的任何部署描述符
+     *  -以上任一项的AppBase或ConfigBase中的符号链接
      */
     private boolean isDeletableResource(DeployedApplication app, File resource) {
         // The resource may be a file, a directory or a symlink to a file or
@@ -1473,6 +1475,9 @@ public class HostConfig implements LifecycleListener {
     }
 
 
+    /**
+     * 创建host组件定义appbase和xmlbase路径对应的目录文件
+     */
     public void beforeStart() {
         if (host.getCreateDirs()) {
             File[] dirs = new File[] {host.getAppBaseFile(),host.getConfigBaseFile()};
@@ -1486,7 +1491,10 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * 当host组件启动时触发 HostConfig启动操作
+     * 启动hostConfig组件.
+     *
+     * 如果Host组件启用了在启动时自动部署appBase，xmlBase目录下应用程序或静态资源
+     * 则扫描appBase，xmlBase目录下应用程序或静态资源，构建context组件，添加到host组件，并启动
      */
     public void start() {
 
@@ -1505,7 +1513,7 @@ public class HostConfig implements LifecycleListener {
         }
 
         /**
-         * 如果host.getAppBaseFile()获取文件对象不是目录，host.getAppBaseFile()表示tomcat存放web应用程序的目录文件对象
+         * 如果Host组件appBase路径下的文件不是目录s
          * 则关闭启动Host组件时自动部署Web应用程序，同时关闭热部署
          * **/
         if (!host.getAppBaseFile().isDirectory()) {
@@ -1516,7 +1524,8 @@ public class HostConfig implements LifecycleListener {
         }
 
         /**
-         * 如果开启启动Host组件时自动部署Web应用程序则调用deployApps()部署应用程序
+         * 如果Host组件启用了在启动时自动部署appBase，xmlBase目录下应用程序或静态资源
+         * 则调用deployApps()扫描appBase，xmlBase目录下应用程序或静态资源，构建context组件，添加到host组件，并启动
          **/
         if (host.getDeployOnStartup())
             deployApps();
@@ -1525,7 +1534,7 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Process a "stop" event for this Host.
+     * 将HostConfig对象从Jmx bean中注销
      */
     public void stop() {
 
@@ -1544,53 +1553,52 @@ public class HostConfig implements LifecycleListener {
 
 
     /**
-     * Check status of all webapps.
+     * 获取host组件下所有部署context组件，检查每一个context组件中需要监听资源目录是否发生变更，
+     * 如果发生变更则触发其context重新加载或启动
      */
     protected void check() {
 
         if (host.getAutoDeploy()) {
-            // Check for resources modification to trigger redeployment
+            /**
+             * 获取部署到host中所有context对应DeployedApplication对象集合
+             * DeployedApplication对象用来描述context部署信息
+             **/
             DeployedApplication[] apps =
                 deployed.values().toArray(new DeployedApplication[0]);
             for (int i = 0; i < apps.length; i++) {
+                /** 过滤掉禁止部署context **/
                 if (!isServiced(apps[i].name))
+                    /** 检查context中资源是否发生变更，如果发生变更则重新部署或重新加载context。 **/
                     checkResources(apps[i], false);
             }
 
-            // Check for old versions of applications that can now be undeployed
+            /** 如果context存在多个版本是否要卸载旧版本context **/
             if (host.getUndeployOldVersions()) {
                 checkUndeploy();
             }
 
-            // Hotdeploy applications
+            /** 扫描appBase，xmlBase目录下应用程序或静态资源，构建context组件，添加到host组件，并启动 **/
             deployApps();
         }
     }
 
 
     /**
-     * Check status of a specific web application and reload, redeploy or deploy
-     * it as necessary. This method is for use with functionality such as
-     * management web applications that upload new/updated web applications and
-     * need to trigger the appropriate action to deploy them. This method
-     * assumes that the web application is currently marked as serviced and that
-     * any uploading/updating has been completed before this method is called.
-     * Any action taken as a result of the checks will complete before this
-     * method returns.
-     *
-     * @param name The name of the web application to check
+     * 检查指定context组件中需要监听资源目录是否发生变更，
+     * 如果发生变更则触发其context重新加载或启动
      */
     public void check(String name) {
         DeployedApplication app = deployed.get(name);
         if (app != null) {
+            /** 检查context中资源是否发生变更，如果发生变更则重新部署或重新加载context。 **/
             checkResources(app, true);
         }
+        /** 扫描appBase，xmlBase目录下应用程序或静态资源，构建context组件，添加到host组件，并启动 **/
         deployApps(name);
     }
 
     /**
-     * Check for old versions of applications using parallel deployment that are
-     * now unused (have no active sessions) and undeploy any that are found.
+     * 检查使用并行部署的旧版本的应用程序，将其卸载
      */
     public synchronized void checkUndeploy() {
         if (deployed.size() < 2) {
@@ -1644,13 +1652,12 @@ public class HostConfig implements LifecycleListener {
     }
 
     /**
-     * Add a new Context to be managed by us.
-     * Entry point for the admin webapp, and other JMX Context controllers.
-     * @param context The context instance
+     * 添加context
      */
     public void manageApp(Context context)  {
 
         String contextName = context.getName();
+
 
         if (deployed.containsKey(contextName))
             return;
@@ -1690,9 +1697,7 @@ public class HostConfig implements LifecycleListener {
     }
 
     /**
-     * Remove a webapp from our control.
-     * Entry point for the admin webapp, and other JMX Context controllers.
-     * @param contextName The context name
+     * 删除context
      */
     public void unmanageApp(String contextName) {
         if(isServiced(contextName)) {
@@ -1701,12 +1706,71 @@ public class HostConfig implements LifecycleListener {
         }
     }
 
+    /**
+     * 校验contextPath是否符合规则
+     */
+    private boolean validateContextPath(File appBase, String contextPath) {
+
+        StringBuilder docBase;
+        String canonicalDocBase = null;
+
+        try {
+            String canonicalAppBase = appBase.getCanonicalPath();
+            docBase = new StringBuilder(canonicalAppBase);
+            if (canonicalAppBase.endsWith(File.separator)) {
+                docBase.append(contextPath.substring(1).replace(
+                        '/', File.separatorChar));
+            } else {
+                docBase.append(contextPath.replace('/', File.separatorChar));
+            }
+
+            canonicalDocBase =
+                    (new File(docBase.toString())).getCanonicalPath();
+
+            if (canonicalDocBase.endsWith(File.separator)) {
+                docBase.append(File.separator);
+            }
+        } catch (IOException ioe) {
+            return false;
+        }
+
+        return canonicalDocBase.equals(docBase.toString());
+    }
+
+
+    /**
+     * 使用host容器组件deployIgnore正则表达式过滤tomcat存放web应用程序的目录子文件
+     */
+    protected String[] filterAppPaths(String[] unfilteredAppPaths) {
+        Pattern filter = host.getDeployIgnorePattern();
+        if (filter == null || unfilteredAppPaths == null) {
+            return unfilteredAppPaths;
+        }
+
+        List<String> filteredList = new ArrayList<>();
+        Matcher matcher = null;
+        for (String appPath : unfilteredAppPaths) {
+            if (matcher == null) {
+                matcher = filter.matcher(appPath);
+            } else {
+                matcher.reset(appPath);
+            }
+            if (matcher.matches()) {
+                if (log.isDebugEnabled()) {
+                    log.debug(sm.getString("hostConfig.ignorePath", appPath));
+                }
+            } else {
+                filteredList.add(appPath);
+            }
+        }
+        return filteredList.toArray(new String[filteredList.size()]);
+    }
+
     // ----------------------------------------------------- Instance Variables
 
 
     /**
-     * This class represents the state of a deployed application, as well as
-     * the monitored resources.
+     * 用来描述context部署信息
      */
     protected static class DeployedApplication {
         public DeployedApplication(String name, boolean hasDescriptor) {
@@ -1715,46 +1779,34 @@ public class HostConfig implements LifecycleListener {
         }
 
         /**
-         * Application context path. The assertion is that
-         * (host.getChild(name) != null).
+         * context根路径
          */
         public final String name;
 
         /**
-         * Does this application have a context.xml descriptor file on the
-         * host's configBase?
+         * context作为应用程序是否配置/META-INF/context.xml
          */
         public final boolean hasDescriptor;
 
         /**
-         * Any modification of the specified (static) resources will cause a
-         * redeployment of the application. If any of the specified resources is
-         * removed, the application will be undeployed. Typically, this will
-         * contain resources like the context.xml file, a compressed WAR path.
-         * The value is the last modification time.
+         * 存储已部署context外部资源，外部资源是处于放置AppBase目录之外的资源
+         * 其中key为外部资源的绝对路径,value为资源部署时的最后修改时间
          */
         public final LinkedHashMap<String, Long> redeployResources =
                 new LinkedHashMap<>();
 
         /**
-         * Any modification of the specified (static) resources will cause a
-         * reload of the application. This will typically contain resources
-         * such as the web.xml of a webapp, but can be configured to contain
-         * additional descriptors.
-         * The value is the last modification time.
+         * 存储已部署context需要监听的资源，一旦资源发生变更会tomcat热部署机制会重新加载context
          */
         public final HashMap<String, Long> reloadResources = new HashMap<>();
 
         /**
-         * Instant where the application was last put in service.
+         * context最后一次部署时间
          */
         public long timestamp = System.currentTimeMillis();
 
         /**
-         * In some circumstances, such as when unpackWARs is true, a directory
-         * may be added to the appBase that is ignored. This flag indicates that
-         * the user has been warned so that the warning is not logged on every
-         * run of the auto deployer.
+         * context作为应用程序是否不解压war包，直接运行wai包程序
          */
         public boolean loggedDirWarning = false;
     }

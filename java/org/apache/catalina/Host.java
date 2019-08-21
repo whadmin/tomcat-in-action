@@ -57,7 +57,7 @@ public interface Host extends Container {
     public void setAppBase(String appBase);
 
     /**
-     * 返回扫描应用程序目录的文件对象
+     * 返回host组件部署web应用程序,或静态资源文件的根的目录文件
      */
     public File getAppBaseFile();
 

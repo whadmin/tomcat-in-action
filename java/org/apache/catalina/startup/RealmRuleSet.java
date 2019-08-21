@@ -24,7 +24,7 @@ import org.apache.tomcat.util.digester.RuleSetBase;
 
 
 /**
- * 解析Realm标签添加到StandardEngine属性中
+ * 解析Realm标签
  */
 @SuppressWarnings("deprecation")
 public class RealmRuleSet extends RuleSetBase {
